@@ -9,9 +9,8 @@ gs_pattern <trace.gz> <binary>
 Binary file should be compiled with symbols turned on (-g)
 
 # How gs_patterns works
-g/s accesses are found by looking at repeated instruction addresses that are memory instructions (scalar and vector). The first pass finds the top g/s instructions. The second pass focuses on the top g/s accesses and records the normalized address distances to a binary file and spatter yaml.
+g/s accesses are found by looking at repeated instruction addresses (loops) that are memory instructions (scalar and vector). The first pass finds the top g/s instructions. The second pass focuses on the top g/s accesses and records the normalized address distances to a binary file and spatter yaml.
 
-To make sure negligible g/s accesses are only included, filters are used to weed out "spam" g/s accesses. 
     
   
 
