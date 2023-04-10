@@ -1,6 +1,13 @@
 # Description
-
 Memory analysis tool for finding scalar and vector gather / scatter (g/s) accesses from DynamoRio traces. gs_patterns writes the "subtraces" to a binary trace and spatter yaml format. The source lines of the top aggressors are reported. 
+
+# Build
+```
+mkdir build
+cd build
+cmake ..
+make
+```
 
 # Use
 ```
