@@ -14,4 +14,5 @@ g/s accesses are found by looking at repeated instruction addresses (loops) that
 # License
 BSD-3 License. See [the LICENSE file](https://github.com/lanl/gs_patterns/blob/main/LICENSE).
   
-
+# Author
+Kevin Sheridan, <kss@lanl.gov>
