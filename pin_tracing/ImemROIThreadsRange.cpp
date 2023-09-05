@@ -118,15 +118,17 @@ int startswith(const char *a, const char *b) {
   return 0;
 }
 
-VOID PeStart(VOID* v) {  
-
-  //printf("PIN -- PeStart ing\n");
-  int ret;
-
+//set active thread 0 on PE 0 only, ignore rest
+VOID set_active_first_pe_thread() {
+  
   INT32 aPid;
-  CHAR trace_name[1024];
+  CHAR pid_name[1024];
   THREADID threadid = PIN_ThreadId();
+  FILE * fppid;
+  struct dirent *de;  // Pointer for directory entry
+  DIR *dr = NULL;  
 
+  //Only thread ONE is active
   if (threadid != 0) {
     sleep(16);
     return;
@@ -134,24 +136,9 @@ VOID PeStart(VOID* v) {
   } else {
     isActive[threadid] = true;
   }
-  
-  // Open trace file and write header
-  pid = PIN_GetPid();
-  sprintf(trace_name, "roitrace.%d.bin", pid);
-  fptrace = fopen(trace_name, "w");
-  if (fptrace == NULL) {
-    printf("PIN -- ERROR: Could not open %s for writing!\n", trace_name);
-    PIN_ExitProcess(1);
-  }
-  fclose(fptrace);
 
-  sleep(15);
-
-  // Only trace with PE0
-  struct dirent *de;  // Pointer for directory entry
-  
-  DIR *dr = opendir(".");
-  
+  //check current dir for existing tag files
+  dr = opendir(".");  
   if (dr == NULL) {
     printf("PIN -- Could not open current directory" );
     PIN_ExitProcess(1);
@@ -159,9 +146,35 @@ VOID PeStart(VOID* v) {
   
   while ((de = readdir(dr)) != NULL) {
     
-    if ( startswith(de->d_name, "roitrace.")) {
+    if ( startswith(de->d_name, "tag.")) {
+      printf("PIN -- ERROR tag files exist. Remove all tag.*.pid files and rerun.\n");
+      PIN_ExitProcess(1);
+    }
+  }  
+  closedir(dr);
+  
+  // Open tag file to determine pid
+  pid = PIN_GetPid();
+  sprintf(pid_name, "tag.%d.pid", pid);
+  fppid = fopen(pid_name, "w");
+  if (fppid == NULL) {
+    printf("PIN -- ERROR: Could not open %s for writing!\n", pid_name);
+    PIN_ExitProcess(1);
+  }
+  fclose(fppid);
+  sleep(15);
+  
+  dr = opendir(".");  
+  if (dr == NULL) {
+    printf("PIN -- Could not open current directory" );
+    PIN_ExitProcess(1);
+  }
+  
+  while ((de = readdir(dr)) != NULL) {
+    
+    if ( startswith(de->d_name, "tag.")) {
 
-      sscanf(de->d_name, "roitrace.%d.bin", &aPid);
+      sscanf(de->d_name, "tag.%d.pid", &aPid);
       if (pid > aPid) {
 	doTrace = false;
 	break;
@@ -171,13 +184,30 @@ VOID PeStart(VOID* v) {
   closedir(dr);
   
   sleep(15);
-  
-  if (!doTrace) {
-    remove(trace_name);
-    return;
-  }
-  remove(trace_name);  
 
+  remove(pid_name);
+
+  return;
+
+}
+
+VOID PeStart(VOID* v) {  
+
+  //printf("PIN -- PeStart ing\n");
+  int ret;
+
+  CHAR trace_name[1024];
+  THREADID threadid = PIN_ThreadId();
+  
+  set_active_first_pe_thread();
+
+  if (!isActive[threadid])
+    return;
+
+  if (!doTrace)
+    return;
+
+  //Max size of trace
   if (access("maxGB.txt", F_OK) == 0) {
     ret = read_maxGB_file("maxGB.txt");
     if (ret) {
@@ -193,13 +223,12 @@ VOID PeStart(VOID* v) {
     PIN_ExitProcess(1);
   }    
 
-  sprintf(trace_name, "roitrace..bin");
+  sprintf(trace_name, "roitrace.bin");
   fptrace = fopen(trace_name, "w");
   if (fptrace == NULL) {
     printf("PIN -- ERROR: Could not open %s for writing!\n", trace_name);
     PIN_ExitProcess(1);
   }
-  //printf("PIN -- intrs: %lu - %lu\n", ROI_A, ROI_B);
     
 }
 
@@ -320,11 +349,12 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   if (!doTrace)
     return;
   
-  printf("PIN -- Instrs = %lu -  %lu\n", ROI_A, ROI_B);
-  printf("PIN -- MCount = %lu\n", Mcnt);
-  printf("PIN -- ICount = %lu\n", Icnt);
-  printf("PIN -- Scattr = %lu\n", Scatteredcnt);
-  printf("PIN -- gICount = %lu\n", gIcnt);
+  printf("PIN -- Instrs            %lu\n", gIcnt);
+  printf("PIN -- ROI InstrsRange   %lu -  %lu\n", ROI_A, ROI_B);
+  printf("PIN --   ROI Instrs      %lu\n", Icnt);
+  printf("PIN --   ROI MemInstrs   %lu\n", Mcnt);
+  printf("PIN --   ROI G/S instrs  %lu\n", Scatteredcnt);
+  printf("PIN -- TraceFile         roitrace.bin\n");
   
   trace_entry_t tent;
   

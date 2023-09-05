@@ -8,25 +8,23 @@
 
 #define MAXBYTES (1LL<<37) //32GiB
 #define MAXTHREADS (256)
-#define MAXFUNCS (32)
-
-CHAR ROI_FUNCS[32][1024];
 
 //threads
 bool isActive[MAXTHREADS] = {false};
 
 //pe
 bool doTrace = true;
-
-bool stopTrace[MAXFUNCS] = {false};
-bool isROI[MAXFUNCS] = {false};
-int isROIcnt[MAXFUNCS] = {0};
+bool stopTrace = false;
+bool isROI = true;
 INT32 pid;
 INT32 nfuncs = 0;
-INT64 totalbytes[MAXFUNCS] = {0};
-UINT64 Icnt[MAXFUNCS] = {0};
-UINT64 Mcnt[MAXFUNCS] = {0};
-UINT64 Scatteredcnt[MAXFUNCS] = {0};
+INT64 totalbytes = 0;
+UINT64 ROI_A = 0;
+UINT64 ROI_B = 0;
+UINT64 Icnt = 0;
+UINT64 Mcnt = 0;
+UINT64 gIcnt = 0;
+UINT64 gMcnt = 0;
 
 #define PADSIZE 56 // 64 byte line size: 64-8
 #define NBUFS (1024)
@@ -46,9 +44,9 @@ struct _trace_entry_t {
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
-FILE * fptrace[MAXFUNCS];
-trace_entry_t * ptrace[MAXFUNCS] = {NULL}; 
-trace_entry_t btrace[MAXFUNCS][NBUFS+1];
+FILE * fptrace;
+trace_entry_t * ptrace = NULL; 
+trace_entry_t btrace[NBUFS+1];
 
 // a running count of the instructions
 class thread_data_t {
@@ -61,9 +59,8 @@ class thread_data_t {
 // key for accessing TLS storage in the threads. initialized once in main()
 static TLS_KEY tls_key = INVALID_TLS_KEY;
 
-INT32 read_rio_file(const char * roi_file) {
+INT32 read_range_file(const char * roi_file) {
 
-  int i = 0;
   FILE * roi_p = NULL;
   
   roi_p = fopen(roi_file, "r");
@@ -72,9 +69,7 @@ INT32 read_rio_file(const char * roi_file) {
     return -1;
   }
 
-  while( fscanf(roi_p, "%s\n", ROI_FUNCS[i++]) != EOF) {
-    nfuncs++;
-  };
+  fscanf(roi_p, "%lu %lu\n", &ROI_A, &ROI_B);
   
   fclose(roi_p);
 
@@ -162,15 +157,10 @@ VOID set_active_first_pe_thread() {
 
 }
 
+
 VOID PeStart(VOID* v) {  
 
-  //printf("PIN -- PeStart ing\n");
-  int ret;
-  int i;
-
-  CHAR trace_name[1024];
   THREADID threadid = PIN_ThreadId();
-  
   set_active_first_pe_thread();
 
   if (!isActive[threadid])
@@ -179,54 +169,22 @@ VOID PeStart(VOID* v) {
   if (!doTrace)
     return;
 
-  //Get ROI functions
-  ret = read_rio_file("roi_funcs.txt");
-  if (ret) {
-    printf("PIN -- ERROR: read_rio_file returned %d\n", ret);
+  /*
+  //Open new trace file
+  pid = PIN_GetPid();
+  sprintf(trace_name, "roitrace.%d.bin", pid);
+  fptrace = fopen(trace_name, "w");
+  if (fptrace == NULL) {
+    printf("PIN -- ERROR: Could not open %s for writing!\n", trace_name);
     PIN_ExitProcess(1);
-  }    
-
-  for(i=0; i<nfuncs; i++) {
-    
-    sprintf(trace_name, "roitrace.%02d.%s.bin", i, ROI_FUNCS[i]);
-    fptrace[i] = fopen(trace_name, "w");
-    if (fptrace[i] == NULL) {
-      printf("PIN -- ERROR: Could not open %s for writing!\n", trace_name);
-      PIN_ExitProcess(1);
-    }
-    printf("PIN -- ROI_FUNC[%2d]: %s\n", i, ROI_FUNCS[i]);
   }
-  printf("\n");
-}
-
-
-void drtrace_write(FILE * fp, trace_entry_t * val, trace_entry_t ** p_val, int purge, int ifunc) {
-		 
-  int ret;
-  int idx;
-  
-  idx = NBUFS - (&val[NBUFS] - *p_val);
-
-  if ( (idx == NBUFS) || (purge) ) {
+  fclose(fptrace);
+  */
     
-    ret = fwrite(val, sizeof(trace_entry_t), idx, fp);
-    if (ret != idx) {
-      printf("PIN -- ERROR: fwrite failed line %d\n", __LINE__);
-      PIN_ExitProcess(1);
-    }
-    totalbytes[ifunc] += (ret *  sizeof(trace_entry_t));
-
-    if (totalbytes[ifunc] >= MAXBYTES)
-      stopTrace[ifunc] = true;
-    *p_val = val;    
-  }
-  
-  return;
 }
 
 VOID ThreadStart(THREADID threadid, CONTEXT* ctxt, INT32 flags, VOID* v) {
 
-  int i;
   if (threadid == 0)
     isActive[threadid] = true;
   
@@ -245,58 +203,11 @@ VOID ThreadStart(THREADID threadid, CONTEXT* ctxt, INT32 flags, VOID* v) {
   if (!doTrace) {
     return;
   }
-    
-  for(i=0; i<nfuncs; i++) {
-    
-    trace_entry_t tent;
-    ptrace[i] = &btrace[i][0];
-    
-    //HEADER
-    tent.type = (unsigned short) 0x19;
-    tent.size = (unsigned short) 0;
-    tent.addr = (addr_t) 1;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //THREAD
-    tent.type = (unsigned short) 0x16;
-    tent.size = (unsigned short) 4;
-    tent.addr = (addr_t) pid;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //PID
-    tent.type = (unsigned short) 0x18;
-    tent.size = (unsigned short) 4;
-    tent.addr = (addr_t) pid;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //MARKER TIMESTAMP
-    tent.type = (unsigned short) 0x1c;
-    tent.size = (unsigned short) 2;
-    tent.addr = (addr_t) 0x002eff22e15562f3;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //MARKER CPUID
-    tent.type = (unsigned short) 0x1c;
-    tent.size = (unsigned short) 3;
-    tent.addr = (addr_t) 0;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-  }
-    
+            
 }
 
 // This function is called when the thread exits
 VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) {
-
   
   
   thread_data_t* tdata = static_cast< thread_data_t* >(PIN_GetThreadData(tls_key, threadIndex));
@@ -311,45 +222,16 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   if (!doTrace)
     return;
 
-  for(int i=0; i<nfuncs; i++) {
-    
-    CHAR trace_name[1024];
-    sprintf(trace_name, "roitrace.%02d.%s.bin", i, ROI_FUNCS[i]);
-    
-    printf("PIN -- *** %s ***\n", ROI_FUNCS[i]);
-    printf("PIN --   ROI Instrs      %lu\n", Icnt[i]);
-    printf("PIN --   ROI MemInstrs   %lu\n", Mcnt[i]);
-    printf("PIN --   ROI G/S instrs  %lu\n", Scatteredcnt[i]);
-    printf("PIN --   TraceFile       %s\n", trace_name);
-    
-    trace_entry_t tent;
-    
-    //MARKER TIMESTAMP
-    tent.type = (unsigned short) 0x1c;
-    tent.size = (unsigned short) 2;
-    tent.addr = (addr_t) 0x002f3d56876b912a;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //MARKER CPUID
-    tent.type = (unsigned short) 0x1c;
-    tent.size = (unsigned short) 3;
-    tent.addr = (addr_t) 0;  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-    
-    //FOOTER
-    tent.type = (unsigned short) 0x1a;
-    tent.size = (unsigned short) 0;
-    tent.addr = (addr_t) 1 ; 
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 1, i);
-    fclose(fptrace[i]);
-    printf("PIN -- \n");
-  }  
+  FILE * fp;
+  fp = fopen("inscount.out", "w");
+  fprintf(fp, "Count %lu\n", gIcnt);
+  fclose(fp);
+  //printf("PIN -- Instrs = %lu -  %lu\n", ROI_A, ROI_B);
+  printf("PIN --   ROI Instrs      %lu\n", Icnt);
+  printf("PIN --   ROI MemInstrs   %lu\n", Mcnt);
+  printf("PIN --   File            inscount.out\n");  
+  printf("PIN -- \n");
+
 }
 
 // Print a memory read record
@@ -361,27 +243,14 @@ VOID RecordMemRead(VOID * ip, VOID * addr, USIZE bsize, THREADID threadid) {
   
   if (!isActive[threadid])
     return;
-
-  for(int i=0; i<nfuncs; i++) {
+  
+  if (stopTrace)
+    return;
+  
+  if(!isROI)
+    return;
     
-    if (stopTrace[i])
-      continue;
-      
-    if(!isROI[i])
-      continue;
-
-    trace_entry_t tent;
-  
-    Mcnt[i]++;
-
-    tent.type = (unsigned short) 0;
-    tent.size = (unsigned short) bsize;
-    tent.addr = (addr_t) addr;
-  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-  }  
+  Mcnt++;
 }
 
 // Print a memory write record
@@ -393,82 +262,37 @@ VOID RecordMemWrite(VOID * ip, VOID * addr, USIZE bsize, THREADID threadid) {
     
   if (!isActive[threadid])
     return;
-
-  for(int i=0; i<nfuncs; i++) {
+  
+  if (stopTrace)
+    return;  
+  
+  if (!isROI)
+    return;
     
-    if (stopTrace[i])
-      continue;  
-  
-    if(!isROI[i])
-      continue;
-
-    trace_entry_t tent;
-  
-    Mcnt[i]++;
-
-    tent.type = (unsigned short) 1;
-    tent.size = (unsigned short) bsize;
-    tent.addr = (addr_t) addr;
-  
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-  }  
+  Mcnt++;
 }
 
 //VOID RecordInstr(VOID * ip, USIZE bsize, VOID * rtn) {
 VOID RecordInstr(VOID * ip, USIZE bsize, THREADID threadid) {
     
-  if (!doTrace)
-    return;
       
   if (!isActive[threadid])
     return;
-
-  for(int i=0; i<nfuncs; i++) {
-    
-    if (stopTrace[i])
-      continue;
-    
-    if(!isROI[i])
-      continue;
-
-    trace_entry_t tent;
-    Icnt[i]++;
-
-    tent.type = (unsigned short) 0xa;
-    tent.size = (unsigned short) bsize;
-    tent.addr = (addr_t) ip;
   
-    memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
-    ptrace[i] += 1;
-    drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
-  }  
-}
-
-// Set ROI flag
-VOID StartROI(UINT32 i, THREADID threadid) {
+  gIcnt++;
+      
+  if (!doTrace)
+    return;  
   
-  if (!isActive[threadid])
+  if (stopTrace)
     return;
   
-  isROI[i] = true;
-  isROIcnt[i]++;
-  //printf("START %32s: %d\n", ROI_FUNCS[i], isROIcnt[i]);
-}
-
-// Set ROI flag
-VOID StopROI(UINT32 i, THREADID threadid) {
-  
-  if (!isActive[threadid])
+  if(!isROI)
     return;
   
-  isROIcnt[i]--;
-  //printf("STOP  %32s: %d\n", ROI_FUNCS[i], isROIcnt[i]);
-  if (isROIcnt[i] == 0)
-    isROI[i] = false;
-}
+  Icnt++;
 
+}
 
 VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
   
@@ -477,53 +301,21 @@ VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
   
   if (!isActive[threadid])
     return;
-  
-  for(int i=0; i<nfuncs; i++) {
-    
-    if (stopTrace[i])
-      continue;  
-  
-    if(!isROI[i])
-      continue;
-        
-    Scatteredcnt[i]++;
-    
-    trace_entry_t tent;
-    
-    for (UINT32 j = 0; j < memOpInfo->NumOfElements(); j++) {
       
-      USIZE bsize =  memOpInfo->ElementSize(j);
-      USIZE rw =  memOpInfo->ElementAccessType(j);
-      addr_t addr = memOpInfo->ElementAddress(j);
-      
-      tent.size = (unsigned short) bsize;
-      tent.addr = (addr_t) addr;
-
-      //READ
-      if ((rw == 0) || (rw == 2) ) {
-	Mcnt[j]++;
-	//Mbytes[j] += bsize;  
-	tent.type = (unsigned short) 0;
+  if (stopTrace)
+    return;
   
-	memcpy(ptrace[j], &tent, sizeof(trace_entry_t));
-	ptrace[j] += 1;
-	drtrace_write(fptrace[j], &btrace[j][0], &ptrace[j], 0, j);	
-      }
-
-      //WRITE
-      if ((rw == 1) || (rw == 2) ) {
-	Mcnt[j]++;
-	//Mbytes[j] += bsize;  
-	tent.type = (unsigned short) 1;
-  
-	memcpy(ptrace[j], &tent, sizeof(trace_entry_t));
-	ptrace[j] += 1;
-	drtrace_write(fptrace[j], &btrace[j][0], &ptrace[j], 0, j);
-      }
-      
-    }
+  if(!isROI)
+    return;
+            
+  for (UINT32 j = 0; j < memOpInfo->NumOfElements(); j++) {
+    
+    Mcnt++;
+    
   }
 }
+
+
 
 // Is called for every instruction and instruments reads and writes
 VOID Instruction(INS ins, VOID *v) {
@@ -575,7 +367,6 @@ VOID Instruction(INS ins, VOID *v) {
     return;
   }
   
-  
   //if (INS_HasScatteredMemoryAccess(ins) ) {
   //  return;
   //}
@@ -612,24 +403,6 @@ VOID Instruction(INS ins, VOID *v) {
   }
 }
 
-VOID Routine(RTN rtn, VOID *v) {
-  
-  // Get routine name
-  const CHAR * name = RTN_Name(rtn).c_str();
-  //printf("%s\n", name);
-
-  for(int i=0; i<nfuncs; i++) {
-
-    if (strcasestr(name, ROI_FUNCS[i]) != NULL) {
-    
-      // Start tracing after ROI begin exec
-      RTN_Open(rtn);
-      RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)StartROI, IARG_UINT32, i, IARG_THREAD_ID, IARG_END);
-      RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)StopROI, IARG_UINT32, i, IARG_THREAD_ID, IARG_END);
-      RTN_Close(rtn);
-    }    
-  }
-}
 
 // Pin calls this function at the end
 VOID Fini(INT32 code, VOID *v) {
@@ -679,7 +452,6 @@ int main(int argc, char *argv[]) {
   PIN_AddFiniFunction(Fini, NULL);
     
   // Add instrument functions
-  RTN_AddInstrumentFunction(Routine, 0);
   INS_AddInstrumentFunction(Instruction, 0);
   
   // Never returns
