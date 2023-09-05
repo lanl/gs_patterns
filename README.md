@@ -1,5 +1,5 @@
 # Description
-Memory analysis tool for finding scalar and vector gather / scatter (g/s) accesses from DynamoRio traces. gs_patterns writes the "subtraces" to a binary trace and spatter yaml format. The source lines of the top aggressors are reported. 
+Memory analysis tool for finding gather / scatter (gs) accesses from DynamoRio traces. gs_patterns discovers gather/scatters from analyzing access patterns in memory traces (doesn't just look for gs instructions). gs_patterns writes the "subtraces" to a binary trace and spatter yaml format. The source lines of the top aggressors are reported. Use the provided pin clients in the pin_tracing folder or use DynamoRio. Pin tends to be more reliable for larger applications.
 
 # Build
 ```
