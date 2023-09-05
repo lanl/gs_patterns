@@ -10,7 +10,7 @@ tar zxvf <pin.file.tar.gz>
 
 export PIN_DIR=<pin_dir>
 
-cp -rv pin_tracing $PIN_DIR/source/tools
+cp -rv pin_tracing/ImemROI $PIN_DIR/source/tools
 
 cd $PIN_DIR/source/tools
 
