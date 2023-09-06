@@ -35,7 +35,7 @@ calc_pi
 ```
 
 # ImemROIThreadsRange
-Outputs dynamorio trace file of instruction range provided. Requires a file called roi_range.txt (in your run dir) with beginning instruction, end instruction and total instructions. 
+Outputs dynamorio trace file of instruction range provided. Requires a file called roi_range.txt (in your run dir) with beginning instruction, end instruction and total instructions of entire application run (used for percentage complete). 
 Example
 ```
 2000
