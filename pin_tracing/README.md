@@ -43,7 +43,7 @@ Example
 500000
 ```
 # Usage
-For ImemROIThreadsRange, I first like to use ImemInscount to get the total number of instructions. Also, as a convenience, ImemROIThreads prints out the instruction percentage progress along with the applications stdout/stderr. That way you can hone in on the range you want.
+For ImemROIThreadsRange, I first like to use ImemInscount to get the total number of instructions. Also, as a convenience, ImemROIThreadsRange prints out the instruction percentage progress along with the applications stdout/stderr. That way you can hone in on the range you want.
 
 Example:
 ```
