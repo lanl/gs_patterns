@@ -1,14 +1,18 @@
 # Setup
 Download PIN tool here:
 ```
+#tested with version 3.28
 https://www.intel.com/content/www/us/en/developer/articles/tool/pin-a-binary-instrumentation-tool-downloads.html
+
+#or
+wget https://software.intel.com/sites/landingpage/pintool/downloads/pin-3.28-98749-g6643ecee5-gcc-linux.tar.gz
 ```
 ```
-module load gcc cmake #or make sure you have gcc and cmake
+module load gcc #or make sure you have gcc. Tested with 9.4.0 and 11.3.0
 
 tar zxvf <pin.file.tar.gz>
 
-export PIN_DIR=<pin_dir>
+export PIN_DIR=<pin_dir>  # full path
 
 cp -rv pin_tracing/ImemROI $PIN_DIR/source/tools
 
