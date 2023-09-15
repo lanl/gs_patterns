@@ -21,7 +21,7 @@ cd $PIN_DIR/source/tools
 #add ImemROI to the list of clients
 vim makefile
 
-#with gcc
+#Compile clients. Some clients may not compile, that is OK. Make sure the ImemROI clients compiled. $PIN_DIR/source/tools/ImemROI/obj-intel64/*.so
 make -j
 ```
 
