@@ -25,7 +25,7 @@ vim makefile
 make -j
 ```
 
-There are three clients. In theory you can run your application with threads and processes (ranks), but only process 0 with thread 0 will be used.
+There are three clients. In theory you can run your application with threads and processes (ranks), but only process 0 with thread 0 will be used. *** NOTE *** make sure you gzip the trace before using gs_patterns.
 
 # ImemInscount 
 Outputs instruction count to stdout and to inscount.out
@@ -54,4 +54,5 @@ Example:
 $PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemInscount.so -- ./hello
 $PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemROIThreadsRange.so -- ./hello
 $PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemROIThreads.so -- ./hello
+gzip roitrace.bin
 ```
