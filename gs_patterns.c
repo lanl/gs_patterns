@@ -233,7 +233,7 @@ int main(int argc, char ** argv) {
   trace_entry_t * drline;
   trace_entry_t * drline2;
   trace_entry_t * p_drtrace = NULL; 
-  trace_entry_t drtrace[NBUFS];
+  static trace_entry_t drtrace[NBUFS];
   gzFile fp_drtrace;
   FILE * fp_gs;
 
@@ -259,20 +259,20 @@ int main(int argc, char ** argv) {
   int w_rw_idx;
   int w_idx;
   addr_t iaddr;
-  int64_t w_iaddrs[2][IWINDOW];
-  int64_t w_bytes[2][IWINDOW];
-  int64_t w_maddr[2][IWINDOW][VBYTES];
-  int64_t w_cnt[2][IWINDOW];
+  static int64_t w_iaddrs[2][IWINDOW];
+  static int64_t w_bytes[2][IWINDOW];
+  static int64_t w_maddr[2][IWINDOW][VBYTES];
+  static int64_t w_cnt[2][IWINDOW];
 
   //First pass to find top gather / scatters
-  char gather_srcline[NGS][1024];
-  addr_t gather_iaddrs[NGS] = {0};
-  int64_t gather_icnt[NGS] = {0};
-  int64_t gather_occ[NGS] = {0};
-  char scatter_srcline[NGS][1024];
-  addr_t scatter_iaddrs[NGS] = {0};
-  int64_t scatter_icnt[NGS] = {0};
-  int64_t scatter_occ[NGS] = {0};
+  static char gather_srcline[NGS][1024];
+  static addr_t gather_iaddrs[NGS] = {0};
+  static int64_t gather_icnt[NGS] = {0};
+  static int64_t gather_occ[NGS] = {0};
+  static char scatter_srcline[NGS][1024];
+  static addr_t scatter_iaddrs[NGS] = {0};
+  static int64_t scatter_icnt[NGS] = {0};
+  static int64_t scatter_occ[NGS] = {0};
 
   //Second Pass
   int dotrace;
@@ -280,20 +280,20 @@ int main(int argc, char ** argv) {
   int bestidx;
   int gather_ntop = 0;
   int scatter_ntop = 0;
-  int gather_offset[NTOP] = {0};
-  int scatter_offset[NTOP] = {0};
+  static int gather_offset[NTOP] = {0};
+  static int scatter_offset[NTOP] = {0};
   
-  addr_t best_iaddr;
-  addr_t gather_tot[NTOP] = {0};
-  addr_t scatter_tot[NTOP] = {0};
-  addr_t gather_top[NTOP] = {0};
-  addr_t gather_top_idx[NTOP] = {0};
-  addr_t scatter_top[NTOP] = {0};
-  addr_t scatter_top_idx[NTOP] = {0};
-  addr_t gather_base[NTOP] = {0};
-  addr_t scatter_base[NTOP] = {0};
-  int64_t * gather_patterns[NTOP] = {0};
-  int64_t * scatter_patterns[NTOP] = {0};
+  static addr_t best_iaddr;
+  static addr_t gather_tot[NTOP] = {0};
+  static addr_t scatter_tot[NTOP] = {0};
+  static addr_t gather_top[NTOP] = {0};
+  static addr_t gather_top_idx[NTOP] = {0};
+  static addr_t scatter_top[NTOP] = {0};
+  static addr_t scatter_top_idx[NTOP] = {0};
+  static addr_t gather_base[NTOP] = {0};
+  static addr_t scatter_base[NTOP] = {0};
+  static int64_t * gather_patterns[NTOP] = {0};
+  static int64_t * scatter_patterns[NTOP] = {0};
 
   for(j=0; j<NTOP; j++) {
     gather_patterns[j] = (int64_t *) calloc(PSIZE, sizeof(int64_t));
