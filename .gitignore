@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+#Build and pin directories
+/build
+/pin_dir
