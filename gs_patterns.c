@@ -9,44 +9,30 @@
 #include <zlib.h>
 #include <sys/resource.h>
 
-#define MAX(X, Y) (((X) < (Y)) ? Y : X)
-#define MIN(X, Y) (((X) > (Y)) ? Y : X)
-#define ABS(X) (((X) < 0) ? (-1) * (X) : X)
+//symbol lookup options
+#define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
 
-//triggers
-#define SAMPLE 0
+//Printing
 #define PERSAMPLE 10000000
-//#define PERSAMPLE 1000
 
 //info
-#define CLSIZE (64)
-#define VBITS (512)
-#define NBUFS (1LL<<10)
-#define IWINDOW (1024)
-#define NGS (8096)
+#define CLSIZE (64) //cacheline bytes
+#define VBITS (512) //vector bits
+#define NBUFS (1LL<<10) //trace reading buffer size
+#define IWINDOW (1024) //number of iaddrs per window
+#define NGS (8096) //max number for gathers and scatters
+#define OBOUNDS (512) //histogram positive max
+#define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
-//patterns
-#define USTRIDES 1024   //Threshold for number of accesses
-#define NSTRIDES 15     //Threshold for number of unique distances
-#define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
-#define NTOP (10)
-#define PSIZE (1<<23)
-//#define PSIZE (1<<18)
+//"patterns"
+#define USTRIDES 1024   //Filter threshold for number of accesses
+#define NSTRIDES 5      //Filter threshold for number of unique distances
+#define OUTTHRESH (0.5) //Filter threshold for percentage of distances at boundaries of histogram
+#define NTOP (10)       //Final gather / scatters to keep
+#define PSIZE (1<<23)   //Max number of indices recorded per gather/scatter
 
 //DONT CHANGE
 #define VBYTES (VBITS/8)
-
-//Terminal colors
-#define KNRM  "\x1B[0m"
-#define KRED  "\x1B[31m"
-#define KYEL  "\x1B[33m"
-#define KBLU  "\x1B[34m"
-#define KMAG  "\x1B[35m"
-#define KCYN  "\x1B[36m"
-
-//address status
-#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
-#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
 
 typedef uintptr_t addr_t;
 
@@ -124,11 +110,6 @@ char *str_replace(char *orig, char *rep, char *with) {
     if (!result)
         return NULL;
 
-    // first time through the loop, all the variable are set correctly
-    // from here on,
-    //    tmp points to the end of the result string
-    //    ins points to the next occurrence of rep in orig
-    //    orig points to the remainder of orig after "end of rep"
     while (count--) {
         ins = strstr(orig, rep);
         len_front = ins - orig;
@@ -220,7 +201,7 @@ int main(int argc, char ** argv) {
   int ret;
   int did_opcode = 0;
   int windowfull = 0;
-  int byte;
+  //int byte;
   int do_gs_traces = 0;
   int do_filter = 1;
   int64_t ngs = 0;  
@@ -246,6 +227,14 @@ int main(int argc, char ** argv) {
   int64_t maddr_prev;
   int64_t maddr;
   int64_t mcl;
+  int64_t giaddrs_nosym = 0;
+  int64_t siaddrs_nosym = 0;
+  int64_t gindices_nosym = 0;
+  int64_t sindices_nosym = 0; 
+  int64_t giaddrs_sym = 0;
+  int64_t siaddrs_sym = 0;
+  int64_t gindices_sym = 0;
+  int64_t sindices_sym = 0;  
   int64_t gather_bytes_hist[100] = {0};
   int64_t scatter_bytes_hist[100] = {0};
   double gather_cnt = 0.0;
@@ -267,9 +256,9 @@ int main(int argc, char ** argv) {
   //First pass to find top gather / scatters
   static char gather_srcline[NGS][1024];
   static addr_t gather_iaddrs[NGS] = {0};
-  static int64_t gather_icnt[NGS] = {0};
-  static int64_t gather_occ[NGS] = {0};
-  static char scatter_srcline[NGS][1024];
+  static int64_t gather_icnt[NGS] = {0}; //vector instances
+  static int64_t gather_occ[NGS] = {0}; //load instances
+  static char scatter_srcline[NGS][1024]; //src line string
   static addr_t scatter_iaddrs[NGS] = {0};
   static int64_t scatter_icnt[NGS] = {0};
   static int64_t scatter_occ[NGS] = {0};
@@ -292,6 +281,8 @@ int main(int argc, char ** argv) {
   static addr_t scatter_top_idx[NTOP] = {0};
   static addr_t gather_base[NTOP] = {0};
   static addr_t scatter_base[NTOP] = {0};
+  static addr_t gather_size[NTOP] = {0};
+  static addr_t scatter_size[NTOP] = {0};
   static int64_t * gather_patterns[NTOP] = {0};
   static int64_t * scatter_patterns[NTOP] = {0};
 
@@ -338,6 +329,7 @@ int main(int argc, char ** argv) {
     }
   }
 
+  int did_record = 0;
   uint64_t mcnt = 0;
   uint64_t unique_iaddrs = 0;
   int unsynced = 0;
@@ -376,9 +368,6 @@ int main(int argc, char ** argv) {
       //     iaddr,  drline->addr, drline->addr % 64, drline->size);
 
       if ((++mcnt % PERSAMPLE) == 0) {
-#if SAMPLE
-	break;
-#endif
 	printf(".");
 	fflush(stdout);
       }
@@ -414,7 +403,7 @@ int main(int argc, char ** argv) {
 	    if (w_iaddrs[w][i] == -1)
 	      break;
 	  
-	    byte = w_bytes[w][i] / w_cnt[w][i];
+	    //byte = w_bytes[w][i] / w_cnt[w][i];
 	  
 	    //First pass
 	    //Determine
@@ -445,23 +434,26 @@ int main(int argc, char ** argv) {
 		continue;
 	      }
 	    }
-	    	    
+
+	    did_record = 0;
 	    if (gs == 0) {
 	      
 	      gather_occ_avg += w_cnt[w][i];
 	      gather_cnt += 1.0;
-	      
+
 	      for(k=0; k<NGS; k++) {
 		if (gather_iaddrs[k] == 0) {
 		  gather_iaddrs[k] = w_iaddrs[w][i];
 		  gather_icnt[k]++;
 		  gather_occ[k] += w_cnt[w][i];
+		  did_record = 1;
 		  break;
 		}
 		
 		if (gather_iaddrs[k] == w_iaddrs[w][i]) {
 		  gather_icnt[k]++;
 		  gather_occ[k] += w_cnt[w][i];
+		  did_record = 1;
 		  break;
 		}
 		
@@ -477,15 +469,19 @@ int main(int argc, char ** argv) {
 		  scatter_iaddrs[k] = w_iaddrs[w][i];
 		  scatter_icnt[k]++;
 		  scatter_occ[k] += w_cnt[w][i];
+		  did_record = 1;
 		  break;
 		}
 		
 		if (scatter_iaddrs[k] == w_iaddrs[w][i]) {
 		  scatter_icnt[k]++;
 		  scatter_occ[k] += w_cnt[w][i];
+		  did_record = 1;
 		  break;
 		}		
 	      }
+
+	      assert(did_record == 1);
 	    }
 	  } //WINDOW i
 	
@@ -550,7 +546,7 @@ int main(int argc, char ** argv) {
   
   printf("\n");
   
-  printf("GATHER/SCATTER STATS: \n");
+  printf("FIRST PASS GATHER/SCATTER STATS: \n");
   printf("LOADS per GATHER:     %16.3f\n", gather_occ_avg);
   printf("STORES per SCATTER:   %16.3f\n", scatter_occ_avg);
   printf("GATHER COUNT:         %16.3f (log2)\n", log(gather_cnt) / log(2.0));
@@ -569,8 +565,17 @@ int main(int argc, char ** argv) {
     
     translate_iaddr(binary, gather_srcline[k], gather_iaddrs[k]);
     
-    if (startswith(gather_srcline[k], "?"))
+#if SYMBOLS_ONLY
+    if (startswith(gather_srcline[k], "?")) {
       gather_icnt[k] = 0;
+      giaddrs_nosym++;
+      gindices_nosym += gather_occ[k];
+      
+    } else {
+      giaddrs_sym++;
+      gindices_sym += gather_occ[k];
+    }
+#endif
     
     gather_cnt += gather_icnt[k];
   }
@@ -630,8 +635,18 @@ int main(int argc, char ** argv) {
       break;
     }
     translate_iaddr(binary, scatter_srcline[k], scatter_iaddrs[k]);
-    if (startswith(scatter_srcline[k], "?"))
+    
+#if SYMBOLS_ONLY
+    if (startswith(scatter_srcline[k], "?")) {
       scatter_icnt[k] = 0;
+      siaddrs_nosym++;
+      sindices_nosym += scatter_occ[k];
+      
+    } else {
+      siaddrs_sym++;
+      sindices_sym += scatter_occ[k];
+    }
+#endif
     
     scatter_cnt += scatter_icnt[k];
   }
@@ -676,6 +691,27 @@ int main(int argc, char ** argv) {
       //     scatter_top[j], scatter_tot[j], scatter_srcline[bestidx]);
     }
   }
+
+#if SYMBOLS_ONLY  
+  if (giaddrs_nosym || siaddrs_nosym) {
+    printf("\n");
+    printf("IGNORED NONSYMBOL STATS:\n");
+    printf("gather   iaddrs: %16ld\n", giaddrs_nosym); 
+    printf("gather  indices: %16ld (%5.2f%c of 1st pass gathers)\n",
+	   gindices_nosym,
+	   100.0 * (double)gindices_nosym / (double)(gindices_nosym + gindices_sym),'%');  
+    printf("scatter  iaddrs: %16ld\n", siaddrs_nosym); 
+    printf("scatter indices: %16ld (%5.2f%c of 1st pass scatters)\n",
+	   sindices_nosym,
+	   100.0 * (double)sindices_nosym / (double)(sindices_nosym + sindices_sym),'%');
+    printf("\n");
+    printf("KEPT SYMBOL STATS:\n");
+    printf("gather   iaddrs: %16ld\n", giaddrs_sym); 
+    printf("gather  indices: %16ld\n", gindices_sym);  
+    printf("scatter  iaddrs: %16ld\n", siaddrs_sym); 
+    printf("scatter indices: %16ld\n", sindices_sym);
+  }
+#endif
   
   //Second Pass
   
@@ -713,9 +749,6 @@ int main(int argc, char ** argv) {
       maddr = drline->addr / drline->size;
       
       if ((++mcnt % PERSAMPLE) == 0) {
-#if SAMPLE
-	break;
-#endif
 	printf(".");
 	fflush(stdout);
       }
@@ -727,6 +760,7 @@ int main(int argc, char ** argv) {
 	  
 	  //found it
 	  if (iaddr == gather_top[i]) {
+	    gather_size[i] = drline->size;
 	    
 	    if (gather_base[i] == 0)
 	      gather_base[i] = maddr;
@@ -735,6 +769,7 @@ int main(int argc, char ** argv) {
 	    if (gather_offset[i] >= PSIZE) {
 	      printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
 	      breakout = 1;
+	      break;
 	    }
 	    //printf("g -- %d % d\n", i, gather_offset[i]); fflush(stdout);
 	    gather_patterns[i][ gather_offset[i]++ ] = (int64_t) (maddr - gather_base[i]);	
@@ -750,6 +785,7 @@ int main(int argc, char ** argv) {
 	  
 	  //found it
 	  if (iaddr == scatter_top[i]) {
+	    scatter_size[i] = drline->size;
 	    
 	    //set base
 	    if (scatter_base[i] == 0) 
@@ -759,6 +795,7 @@ int main(int argc, char ** argv) {
 	    if (scatter_offset[i] >= PSIZE) {
 	      printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
 	      breakout = 1;
+	      break;
 	    }
 	    scatter_patterns[i][ scatter_offset[i]++ ] = (int64_t) (maddr - scatter_base[i]);
 	    break;	      
@@ -781,41 +818,41 @@ int main(int argc, char ** argv) {
   for(i=0; i<gather_ntop; i++) {
     
     //Find smallest
-    smallest = 0;
+    smallest = 0x7FFFFFFFFFFFFFFFL;
     for(j=0; j<gather_offset[i]; j++) {
       if (gather_patterns[i][j] < smallest)
 	smallest = gather_patterns[i][j];
     }
-
-    smallest *= -1;
+    
     //Normalize
     for(j=0; j<gather_offset[i]; j++) {
-      gather_patterns[i][j] += smallest;    
+      gather_patterns[i][j] -= smallest;    
     }
   }
   
   for(i=0; i<scatter_ntop; i++) {
     
     //Find smallest
-    smallest = 0;
+    smallest = 0x7FFFFFFFFFFFFFFFL;
     for(j=0; j<scatter_offset[i]; j++) {
       if (scatter_patterns[i][j] < smallest)
 	smallest = scatter_patterns[i][j];
     }
-    smallest *= -1;
     
     //Normalize
     for(j=0; j<scatter_offset[i]; j++) {
-      scatter_patterns[i][j] += smallest;    
+      scatter_patterns[i][j] -= smallest;    
     }
   }    
 
   //Create stride histogram and create spatter
   int sidx;
+  int firstgs = 1;
   int first_spatter = 1;
+  int ibin = 0;
   int unique_strides;
-  int64_t idx, pidx;
-  int64_t n_stride[1027];
+  int64_t idx, pidx, hbin ;
+  int64_t n_stride[OBOUNDS_ALLOC];
   double outbounds;
   //print
 
@@ -838,38 +875,46 @@ int main(int argc, char ** argv) {
 
   //Header
   fprintf(fp, "[ ");
-  fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
+  fprintf(fp2, "#iaddr, sourceline, type size bytes, g/s, nindices, final percentage of g/s\n");
   
   printf("\n");
   for(i=0; i<gather_ntop; i++) {
-    printf("***************************************************************************************\n");
 
     unique_strides = 0;
-    for(j=0; j<1027; j++)
+    for(j=0; j<OBOUNDS_ALLOC; j++)
       n_stride[j] = 0;
     
     for(j=1; j<gather_offset[i]; j++) {
-      sidx = gather_patterns[i][j] - gather_patterns[i][j-1] + 513;
+      sidx = gather_patterns[i][j] - gather_patterns[i][j-1] + OBOUNDS + 1;
       sidx = (sidx < 1) ? 0 : sidx;
-      sidx = (sidx > 1025) ? 1026 : sidx;
+      sidx = (sidx > OBOUNDS_ALLOC - 1) ? OBOUNDS_ALLOC - 1 : sidx;
       n_stride[sidx]++;
     }
 
-    for(j=0; j<1027; j++) {
+    for(j=0; j<OBOUNDS_ALLOC; j++) {
       if (n_stride[j] > 0) {
 	unique_strides++;
       }
     }
 
-    outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) gather_offset[i];
+    //percentage out of bounds
+    outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) gather_offset[i];
     
-    //if ( ( (unique_strides > NSTRIDES) || (outbounds > OUTTHRESH) ) && (gather_offset[i] > USTRIDES ) ){
-    if (1) {
+    if (((unique_strides > NSTRIDES) || (outbounds > OUTTHRESH)) && (gather_offset[i] > USTRIDES)) {
 
+      if (firstgs) {
+	firstgs = 0;
+	printf("***************************************************************************************\n");
+	printf("GATHERS\n");
+      }
+      printf("***************************************************************************************\n");
       //create a binary file
       FILE * fp_bin;
-      char * bin_name;
-      bin_name = str_replace(argv[1], ".gz", ".sbin");
+      char bin_name[1024];
+      char * tmp_name;
+      
+      tmp_name = str_replace(argv[1], ".gz", "");
+      sprintf(bin_name, "%s.g.%03d.%02dB.sbin", tmp_name, i, gather_size[i]);
       printf("%s\n", bin_name);
       fp_bin = fopen(bin_name, "w");
       if (fp_bin == NULL) {
@@ -879,37 +924,50 @@ int main(int argc, char ** argv) {
       
       printf("GIADDR   -- %p\n",  gather_top[i]);
       printf("SRCLINE  -- %s\n", gather_srcline[ gather_top_idx[i] ] );
-      printf("GATHER %c -- %6.3f%c (512-bit chunks)\n",
-	     '%', 100.0 * (double) gather_tot[i] / gather_cnt, '%');
-      printf("NDISTS  -- %ld\n", gather_offset[i]);
-      
+      printf("GATHER %c -- %6.3f%c (%4d-bit chunks)\n",
+	     '%', 100.0 * (double) gather_tot[i] / gather_cnt, '%', VBITS);
+      printf("DTYPE      -- %d bytes\n", gather_size[i]);
+      printf("NINDICES   -- %ld\n", gather_offset[i]);
+      printf("INDICES:\n");
       int64_t nlcnt = 0;
       for(j=0; j<gather_offset[i]; j++) {
 	
-	if (j < 39) {
+	if (j <= 49) {
 	  printf("%10ld ", gather_patterns[i][j]); fflush(stdout);
-	  if (( ++nlcnt % 13) == 0)
+	  if (( ++nlcnt % 10) == 0)
 	    printf("\n");
 	  
-	} else if (j >= (gather_offset[i] - 39)) {
+	} else if (j >= (gather_offset[i] - 50)) {
 	  printf("%10ld ", gather_patterns[i][j]); fflush(stdout);
-	  if (( ++nlcnt % 13) == 0)
+	  if (( ++nlcnt % 10) == 0)
 	    printf("\n");
 	  
-	} else if (j == 39)
+	} else if (j == 50)
 	  printf("...\n");
       }    
       printf("\n");
       printf("DIST HISTOGRAM --\n");
-      
-      for(j=0; j<1027; j++) {
-	if (n_stride[j] > 0) {
-	  if (j == 0)
-	    printf("%6s: %ld\n", "< -512", n_stride[j]);
-	  else if (j == 1026)
-	    printf("%6s: %ld\n", ">  512", n_stride[j]);
-	  else
-	    printf("%6d: %ld\n", j-513, n_stride[j]);
+
+      hbin = 0;
+      for(j=0; j<OBOUNDS_ALLOC; j++) {
+	
+	if (j == 0) {
+	  printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
+	  hbin = 0;
+	  
+	} else if (j == OBOUNDS +1) {	    
+	  printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
+	  hbin = 0;
+	  
+	} else if (j == (OBOUNDS_ALLOC-2) ) {
+	  printf("[    0, %5ld]: %ld\n", VBITS, hbin);
+	  hbin = 0;	      
+	  
+	} else if (j == (OBOUNDS_ALLOC-1)) {
+	  printf("[%5ld,   inf): %ld\n", VBITS+1, n_stride[j]);
+	  
+	} else {
+	  hbin += n_stride[j];
 	}
       }
       
@@ -930,43 +988,51 @@ int main(int argc, char ** argv) {
 
       fprintf(fp, "], \"count\":1}");
 
-      fprintf(fp2, "%s,G,%ld,%6.3f\n",
-	      gather_srcline[ gather_top_idx[i] ], gather_offset[i],
-	      100.0*(double) gather_tot[i] / gather_cnt);
+      fprintf(fp2, "%p,%s,%d,G,%ld,%6.3f\n",
+	      gather_top[i],gather_srcline[ gather_top_idx[i] ], gather_size[i],
+	      gather_offset[i], 100.0*(double) gather_tot[i] / gather_cnt);
+      free(tmp_name);
+      printf("***************************************************************************************\n\n"); 
     }   
-    printf("***************************************************************************************\n\n"); 
   }
   
   printf("\n");
+  firstgs = 1;
   for(i=0; i<scatter_ntop; i++) {
-    printf("***************************************************************************************\n");
     
     unique_strides = 0;
-    for(j=0; j<1027; j++)
+    for(j=0; j<OBOUNDS_ALLOC; j++)
       n_stride[j] = 0;
     
     for(j=1; j<scatter_offset[i]; j++) {
-      sidx = scatter_patterns[i][j] - scatter_patterns[i][j-1] + 513;
+      sidx = scatter_patterns[i][j] - scatter_patterns[i][j-1] + OBOUNDS + 1;
       sidx = (sidx < 1) ? 0 : sidx;
-      sidx = (sidx > 1025) ? 1026 : sidx;
+      sidx = (sidx > OBOUNDS_ALLOC-1) ? OBOUNDS_ALLOC-1 : sidx;
       n_stride[sidx]++;
     }
       
-    for(j=0; j<1027; j++) {
+    for(j=0; j<OBOUNDS_ALLOC; j++) {
       if (n_stride[j] > 0) {
 	unique_strides++;
       }
     }
     
-    outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) scatter_offset[i];
+    outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) scatter_offset[i];
     
-    //if (((unique_strides > NSTRIDES)  | (outbounds > OUTTHRESH) ) && (scatter_offset[i] > USTRIDES) ){
-    if (1) {
+    if (((unique_strides > NSTRIDES) | (outbounds > OUTTHRESH)) && (scatter_offset[i] > USTRIDES)) {
       
+      if (firstgs) {
+	firstgs = 0;
+	printf("***************************************************************************************\n");
+	printf("SCATTERS\n");
+      }
+      printf("***************************************************************************************\n");
       //create a binary file
       FILE * fp_bin;
-      char * bin_name;
-      bin_name = str_replace(argv[1], ".gz", ".sbin");
+      char bin_name[1024];
+      char * tmp_name;
+      tmp_name = str_replace(argv[1], ".gz", "");
+      sprintf(bin_name, "%s.s.%03d.%02dB.sbin", tmp_name, i, scatter_size[i]);
       printf("%s\n", bin_name);
       fp_bin = fopen(bin_name, "w");
       if (fp_bin == NULL) {
@@ -976,36 +1042,51 @@ int main(int argc, char ** argv) {
       
       printf("SIADDR    -- %p\n",   scatter_top[i]);
       printf("SRCLINE   -- %s\n", scatter_srcline[ scatter_top_idx[i]]);
-      printf("SCATTER %c -- %6.3f%c (512-bit chunks)\n",
-	     '%', 100.0 * (double) scatter_tot[i] / scatter_cnt, '%');
-      printf("NDISTS  -- %ld\n", scatter_offset[i]);
+      printf("SCATTER %c -- %6.3f%c (%4ld-bit chunks)\n",
+	     '%', 100.0 * (double) scatter_tot[i] / scatter_cnt, '%', VBITS);
+      printf("DTYPE     -- %d bytes\n", scatter_size[i]);
+      printf("NINDICES  -- %ld\n", scatter_offset[i]);
+      printf("INDICES:\n");
       
       int64_t nlcnt = 0;
       for(j=0; j<scatter_offset[i]; j++) {
 	
-	if (j < 39) {
+	if (j <= 49) {
 	  printf("%10ld ", scatter_patterns[i][j]); fflush(stdout);
-	  if (( ++nlcnt % 13) == 0)
+	  if (( ++nlcnt % 10) == 0)
 	    printf("\n");
 	  
-	} else if (j >= (scatter_offset[i] - 39)) {
+	} else if (j >= (scatter_offset[i] - 50)) {
 	  printf("%10ld ", scatter_patterns[i][j]); fflush(stdout);
-	  if (( ++nlcnt % 13) == 0)
+	  if (( ++nlcnt % 10) == 0)
 	    printf("\n");
 	  
-	} else if (j == 39)
+	} else if (j == 50)
 	  printf("...\n");
       }
       printf("\n");
       printf("DIST HISTOGRAM --\n");
-      for(j=0; j<1027; j++) {
-	if (n_stride[j] > 0) {
-	  if (j == 0)
-	    printf("%6s: %ld\n", "< -512", n_stride[j]);
-	  else if (j == 1026)
-	    printf("%6s: %ld\n", ">  512", n_stride[j]);
-	  else
-	    printf("%6d: %ld\n", j-513, n_stride[j]);
+
+      hbin = 0;
+      for(j=0; j<OBOUNDS_ALLOC; j++) {
+	
+	if (j == 0) {
+	  printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
+	  hbin = 0;
+	  
+	} else if (j == OBOUNDS +1) {	    
+	  printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
+	  hbin = 0;
+	  
+	} else if (j == (OBOUNDS_ALLOC-2) ) {
+	  printf("[    0, %5ld]: %ld\n", VBITS, hbin);
+	  hbin = 0;	      
+	  
+	} else if (j == (OBOUNDS_ALLOC-1)) {
+	  printf("[%5ld,   inf): %ld\n", VBITS+1, n_stride[j]);
+	  
+	} else {
+	  hbin += n_stride[j];
 	}
       }
       
@@ -1025,18 +1106,18 @@ int main(int argc, char ** argv) {
       fprintf(fp, "%ld",  scatter_patterns[i][scatter_offset[i]-1]);
       fprintf(fp, "], \"count\":1}");
       
-      fprintf(fp2, "%s,S,%ld,%6.3f\n",
-	      scatter_srcline[ scatter_top_idx[i] ], scatter_offset[i],
-	      100.0*(double) scatter_tot[i] / scatter_cnt);
-    }    
-    printf("***************************************************************************************\n\n");
+      fprintf(fp2, "%p,%s,%d,S,%ld,%6.3f\n",
+	      scatter_top[i],scatter_srcline[ scatter_top_idx[i] ], scatter_size[i],
+	      scatter_offset[i], 100.0*(double) scatter_tot[i] / scatter_cnt);
+      free(tmp_name);  
+      printf("***************************************************************************************\n\n");
+    }  
   }
 
   //Footer
   fprintf(fp, " ]");
   fclose(fp);
-  fclose(fp2);
-  
+  fclose(fp2);  
   
   for(i=0; i<NTOP; i++) {
     free(gather_patterns[i]);

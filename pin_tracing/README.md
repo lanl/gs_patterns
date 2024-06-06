@@ -4,7 +4,7 @@ Download PIN tool here:
 #tested with version 3.28
 https://www.intel.com/content/www/us/en/developer/articles/tool/pin-a-binary-instrumentation-tool-downloads.html
 
-#or
+#via
 wget https://software.intel.com/sites/landingpage/pintool/downloads/pin-3.28-98749-g6643ecee5-gcc-linux.tar.gz
 ```
 ```
@@ -18,20 +18,24 @@ cp -rv pin_tracing/ImemROI $PIN_DIR/source/tools
 
 cd $PIN_DIR/source/tools
 
-#add ImemROI to the list of clients
+#add ImemROI to the list of clients in makefile
 vim makefile
 
-#Compile clients. Some clients may not compile, that is OK. Make sure the ImemROI clients compiled. $PIN_DIR/source/tools/ImemROI/obj-intel64/*.so
+#Compile clients. Some clients may not compile, that is OK.
+make -j
+
+#check that clients compiled:
+ls -al $PIN_DIR/source/tools/ImemROI/obj-intel64/*.so
 make -j
 ```
 
-There are three clients. In theory you can run your application with threads and processes (ranks), but only process 0 with thread 0 will be used. *** NOTE *** make sure you gzip the trace before using gs_patterns.
+There are three clients. You can run your application with multiple threads and multiple processes (ranks), but only process 0 with thread 0 will be used. *** NOTE *** make sure you gzip the trace before using gs_patterns.
 
 # ImemInscount 
 Outputs instruction count to stdout and to inscount.out
 
 # ImemROIThreads
-Outputs dynamorio trace file(s) of each function trace. Requires a file called roi_funcs.txt (in your run dir) with a line per function name you want to trace. Case is ignored.
+Outputs dynamorio trace formatted file(s) of each function. Requires a file called roi_funcs.txt (in your run dir) with a line per function name you want to trace. Case is ignored.
 Example
 ```
 main
