@@ -426,14 +426,43 @@ int main(int argc, char ** argv) {
 	      }	      
 	      maddr_prev = maddr;
 	    }
-	    
-	    for (j=0; j<w_cnt[w][i]; j++) {
-	      
-	      if (gs == -1) {
-		other_cnt++;
-		continue;
+	    	      
+	    if (gs == -1) {
+
+	      //check if this was a gather
+	      if (w == 0) {
+		
+		for(k=0; k<NGS; k++) {
+		  
+		  //end
+		  if (gather_iaddrs[k] == 0)
+		    break;
+		  
+		  if (gather_iaddrs[k] == w_iaddrs[w][i]) {
+		    gs = 0;
+		    break;
+		  }
+		}
+		  
+		//check if this was a scatter
+	      } else {
+		
+		for(k=0; k<NGS; k++) {
+		  
+		  //end
+		  if (scatter_iaddrs[k] == 0)
+		    break;
+		  
+		  if (scatter_iaddrs[k] == w_iaddrs[w][i]) {
+		    gs = 1;
+		    break;
+		  }
+		}		  
 	      }
 	    }
+
+	    if (gs == -1)
+	      other_cnt++;
 
 	    did_record = 0;
 	    if (gs == 0) {
@@ -696,20 +725,20 @@ int main(int argc, char ** argv) {
   if (giaddrs_nosym || siaddrs_nosym) {
     printf("\n");
     printf("IGNORED NONSYMBOL STATS:\n");
-    printf("gather   iaddrs: %16ld\n", giaddrs_nosym); 
-    printf("gather  indices: %16ld (%5.2f%c of 1st pass gathers)\n",
+    printf("gather unique iaddrs:  %16ld\n", giaddrs_nosym); 
+    printf("gather total indices:  %16ld (%5.2f%c of 1st pass gathers)\n",
 	   gindices_nosym,
 	   100.0 * (double)gindices_nosym / (double)(gindices_nosym + gindices_sym),'%');  
-    printf("scatter  iaddrs: %16ld\n", siaddrs_nosym); 
-    printf("scatter indices: %16ld (%5.2f%c of 1st pass scatters)\n",
+    printf("scatter unique iaddrs: %16ld\n", siaddrs_nosym); 
+    printf("scatter total indices: %16ld (%5.2f%c of 1st pass scatters)\n",
 	   sindices_nosym,
 	   100.0 * (double)sindices_nosym / (double)(sindices_nosym + sindices_sym),'%');
     printf("\n");
     printf("KEPT SYMBOL STATS:\n");
-    printf("gather   iaddrs: %16ld\n", giaddrs_sym); 
-    printf("gather  indices: %16ld\n", gindices_sym);  
-    printf("scatter  iaddrs: %16ld\n", siaddrs_sym); 
-    printf("scatter indices: %16ld\n", sindices_sym);
+    printf("gather unique iaddrs:  %16ld\n", giaddrs_sym); 
+    printf("gather total indices:  %16ld\n", gindices_sym);  
+    printf("scatter unique iaddrs: %16ld\n", siaddrs_sym); 
+    printf("scatter total indices: %16ld\n", sindices_sym);
   }
 #endif
   
