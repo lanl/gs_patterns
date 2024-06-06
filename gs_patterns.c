@@ -487,6 +487,7 @@ int main(int argc, char ** argv) {
 		}
 		
 	      }
+	      assert(did_record == 1);
 	      
 	    } else if (gs == 1) {
 	      
