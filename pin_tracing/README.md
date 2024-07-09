@@ -12,21 +12,9 @@ module load gcc #or make sure you have gcc. Tested with 9.4.0 and 11.3.0
 
 tar zxvf <pin.file.tar.gz>
 
-export PIN_DIR=<pin_dir>  # full path
+export PIN_ROOT=<pin_dir>  # full path
 
-cp -rv pin_tracing/ImemROI $PIN_DIR/source/tools
-
-cd $PIN_DIR/source/tools
-
-#add ImemROI to the list of clients in makefile
-vim makefile
-
-#Compile clients. Some clients may not compile, that is OK.
-make -j
-
-#check that clients compiled:
-ls -al $PIN_DIR/source/tools/ImemROI/obj-intel64/*.so
-make -j
+make
 ```
 
 There are three clients. You can run your application with multiple threads and multiple processes (ranks), but only process 0 with thread 0 will be used. *** NOTE *** make sure you gzip the trace before using gs_patterns.
@@ -55,8 +43,8 @@ For ImemROIThreadsRange, I first like to use ImemInscount to get the total numbe
 
 Example:
 ```
-$PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemInscount.so -- ./hello
-$PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemROIThreadsRange.so -- ./hello
-$PIN_DIR/pin -t $PIN_DIR/source/tools/ImemROI/obj-intel64/ImemROIThreads.so -- ./hello
+$PIN_ROOT/pin -t obj-intel64/ImemInscount.so -- ./hello
+$PIN_ROOT/pin -t obj-intel64/ImemROIThreadsRange.so -- ./hello
+$PIN_ROOT/pin -t obj-intel64/ImemROIThreads.so -- ./hello
 gzip roitrace.bin
 ```
