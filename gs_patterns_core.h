@@ -58,16 +58,12 @@ namespace gs_patterns_core
                 trace_info.opcodes++;
                 trace_info.did_opcode = true;
             }
-
             w_rw_idx = ia.get_type();
 
             //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
             //     iw.iaddr,  ia.get_address(), ia.get_address() % 64, ia.get_size());
 
             if ((++trace_info.mcnt % PERSAMPLE) == 0) {
-#if SAMPLE
-                break;
-#endif
                 printf(".");
                 fflush(stdout);
             }
@@ -103,7 +99,7 @@ namespace gs_patterns_core
                         if (iw.w_iaddrs(w,i) == -1)
                             break;
 
-                        int byte = iw.w_bytes(w, i) / iw.w_cnt(w, i);
+                        //int byte = iw.w_bytes(w, i) / iw.w_cnt(w, i);
 
                         // First pass - Determine gather/scatter?
                         gs = -1;
@@ -117,18 +113,39 @@ namespace gs_patterns_core
                             if (j == 0)
                                 iw.get_maddr_prev() = iw.get_maddr() - 1;
 
-                            // gather / scatter
+                            // gather / scatter potential
                             if (iw.get_maddr() != iw.get_maddr_prev()) {
-                                if ((gs == -1) && (abs(iw.get_maddr() - iw.get_maddr_prev()) > 1))  // ? > 1 stride (non-contiguous)   <--------------------
+			      // ? > 1 stride (non-contiguous)   <--------------------
+                                if ((gs == -1) && (abs(iw.get_maddr() - iw.get_maddr_prev()) > 1)) 
                                     gs = w;
                             }
                             iw.get_maddr_prev() = iw.get_maddr();
                         }
 
+			//Once a gather/scatter, always a gather/scatter
+			if (gs == -1) {
+			  
+			  InstrInfo & target_iinfo = (w == 0) ? gather_iinfo : scatter_iinfo;			    
+			  for(k=0; k<NGS; k++) {
+			    
+			    //end
+			    if (target_iinfo.get_iaddrs()[k] == 0)
+			      break;
+			    
+			    if (target_iinfo.get_iaddrs()[k] == iw.w_iaddrs(w, i)) {
+			      gs = w;
+			      break;
+			    }
+			  }
+			}		   			
+
                         // Update other_cnt
-                        if (gs == -1) trace_info.other_cnt += iw.w_cnt(w, i);
+                        if (gs == -1)
+			  trace_info.other_cnt++;
+			//trace_info.other_cnt += iw.w_cnt(w, i);
 
                         // GATHER or SCATTER handling
+			int did_record = 0;
                         if (gs == 0 || gs == 1) {
                             InstrInfo & target_iinfo = (gs == 0) ? gather_iinfo : scatter_iinfo;
 
@@ -146,15 +163,18 @@ namespace gs_patterns_core
                                     target_iinfo.get_iaddrs()[k] = iw.w_iaddrs(w, i);
                                     (target_iinfo.get_icnt()[k])++;
                                     target_iinfo.get_occ()[k] += iw.w_cnt(w, i);
+				    did_record = 1;
                                     break;
                                 }
 
                                 if (target_iinfo.get_iaddrs()[k] == iw.w_iaddrs(w, i)) {
                                     (target_iinfo.get_icnt()[k])++;
                                     target_iinfo.get_occ()[k] += iw.w_cnt(w, i);
+				    did_record = 1;
                                     break;
                                 }
                             }
+			    assert(did_record == 1);
                         } // - if
                     } //WINDOW i - for
 
@@ -182,9 +202,8 @@ namespace gs_patterns_core
             } else {
                 trace_info.addrs++;
             }
-        }
-        else
-        {
+	    
+        } else {
             /***********************/
             /** SOMETHING ELSE **/
             /***********************/
@@ -209,12 +228,37 @@ namespace gs_patterns_core
 
         printf("\n");
 
-        printf("GATHER/SCATTER STATS: \n");
+        printf("FIRST PASS GATHER/SCATTER STATS: \n");
         printf("LOADS per GATHER:     %16.3f\n", mp.get_trace_info().gather_occ_avg);
         printf("STORES per SCATTER:   %16.3f\n", mp.get_trace_info().scatter_occ_avg);
         printf("GATHER COUNT:         %16.3f (log2)\n", log(mp.get_gather_metrics().cnt) / log(2.0));
         printf("SCATTER COUNT:        %16.3f (log2)\n", log(mp.get_scatter_metrics().cnt) / log(2.0));
         printf("OTHER  COUNT:         %16.3f (log2)\n", log(mp.get_trace_info().other_cnt) / log(2.0));
+	
+#if SYMBOLS_ONLY
+	if (mp.get_gather_metrics().iaddrs_nosym || mp.get_scatter_metrics().iaddrs_nosym) {
+	  printf("\n");
+	  printf("IGNORED NONSYMBOL STATS:\n");
+	  printf("gather unique iaddrs:  %16ld\n", mp.get_gather_metrics().iaddrs_nosym); 
+	  printf("gather total indices:  %16ld (%5.2f%c of 1st pass gathers)\n",
+		 mp.get_gather_metrics().indices_nosym,
+		 100.0 * (double)mp.get_gather_metrics().indices_nosym /
+		 (double)(mp.get_gather_metrics().indices_nosym + mp.get_gather_metrics().indices_sym),
+		 '%');  
+	  printf("scatter unique iaddrs: %16ld\n", mp.get_scatter_metrics().iaddrs_nosym); 
+	  printf("scatter total indices: %16ld (%5.2f%c of 1st pass scatters)\n",
+		 mp.get_scatter_metrics().indices_nosym,
+		 100.0 * (double)mp.get_scatter_metrics().indices_nosym /
+		 (double)(mp.get_scatter_metrics().indices_nosym + mp.get_scatter_metrics().indices_sym),'%');
+	  printf("\n");
+	  printf("KEPT SYMBOL STATS:\n");
+	  printf("gather unique iaddrs:  %16ld\n", mp.get_scatter_metrics().iaddrs_sym); 
+	  printf("gather total indices:  %16ld\n", mp.get_scatter_metrics().indices_sym);  
+	  printf("scatter unique iaddrs: %16ld\n", mp.get_scatter_metrics().iaddrs_sym); 
+	  printf("scatter total indices: %16ld\n", mp.get_scatter_metrics().indices_sym);
+	}
+#endif
+  
     }
 
     int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics);
@@ -254,7 +298,7 @@ namespace gs_patterns_core
 
         // Header
         fprintf(fp, "[ ");
-        fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
+	fprintf(fp2, "#iaddr, sourceline, type size bytes, g/s, nindices, final percentage of g/s\n");
 
         bool first_spatter = true;
         create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter);

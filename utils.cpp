@@ -73,11 +73,6 @@ const char* str_replace(const char* orig, const char* rep, const char* with) {
     if (!result)
         return NULL;
 
-    // first time through the loop, all the variable are set correctly
-    // from here on,
-    //    tmp points to the end of the result string
-    //    ins points to the next occurrence of rep in orig
-    //    orig points to the remainder of orig after "end of rep"
     while (count--) {
         ins = (char*)strstr(orig, rep);
         len_front = ins - orig;

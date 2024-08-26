@@ -13,18 +13,6 @@
 #include "gspin_patterns.h"
 #include "utils.h"
 
-//Terminal colors
-#define KNRM  "\x1B[0m"
-#define KRED  "\x1B[31m"
-#define KYEL  "\x1B[33m"
-#define KBLU  "\x1B[34m"
-#define KMAG  "\x1B[35m"
-#define KCYN  "\x1B[36m"
-
-//address status
-#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
-#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
-
 namespace gs_patterns
 {
 namespace gspin_patterns
@@ -86,7 +74,7 @@ void MemPatternsForPin::generate_patterns()
 {
     // ----------------- Update Source Lines -----------------
 
-    update_source_lines();
+    //update_source_lines();
 
     // ----------------- Update Metrics -----------------
 
@@ -152,9 +140,19 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
+	
+#if SYMBOLS_ONLY
         translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
-        if (startswith(target_metrics.get_srcline()[k], "?"))
+        if (startswith(target_metrics.get_srcline()[k], "?")) {
             target_iinfo.get_icnt()[k] = 0;
+	    target_metrics.iaddrs_nosym++;
+	    target_metrics.indices_nosym += target_iinfo.get_occ()[k];
+      
+	} else {
+	  target_metrics.iaddrs_sym++;
+	  target_metrics.indices_sym += target_iinfo.get_occ()[k];
+	}
+#endif
 
         target_cnt += target_iinfo.get_icnt()[k];
     }
@@ -186,6 +184,7 @@ void MemPatternsForPin::process_traces()
     trace_entry_t *p_drtrace = NULL;
     trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
 
+    
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
         //decode drtrace
         drline = p_drtrace;
@@ -203,6 +202,10 @@ void MemPatternsForPin::process_traces()
     //metrics
     get_trace_info().gather_occ_avg /= get_gather_metrics().cnt;
     get_trace_info().scatter_occ_avg /= get_scatter_metrics().cnt;
+
+    // ----------------- Update Source Lines -----------------
+
+    update_source_lines();
 
     display_stats<MEMORY_ACCESS_SIZE>(*this);
 

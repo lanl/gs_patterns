@@ -6,30 +6,36 @@
 #include <cstring>
 #include <vector>
 
-#define MAX(X, Y) (((X) < (Y)) ? Y : X)
-#define MIN(X, Y) (((X) > (Y)) ? Y : X)
-#define ABS(X) (((X) < 0) ? (-1) * (X) : X)
+//symbol lookup options
+#if !defined(SYMBOLS_ONLY)
+#define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
+#endif
 
 //triggers
-#define SAMPLE 0
 #define PERSAMPLE 10000000
-//#define PERSAMPLE 1000
 
 //info
-#define CLSIZE (64)
-#define NBUFS (1LL<<10)
-#define IWINDOW (1024)
-#define NGS (8096)
+#define CLSIZE (64) //cacheline bytes
+#define NBUFS (1LL<<10) //trace reading buffer size
+#define IWINDOW (1024) //number of iaddrs per window
+#define NGS (8096) //max number for gathers and scatters
+#define OBOUNDS (512) //histogram positive max
+#define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
 //patterns
 #define USTRIDES 1024   //Threshold for number of accesses
 #define NSTRIDES 15     //Threshold for number of unique distances
 #define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
-#define NTOP (10)
+#define NTOP (10)       //Final gather / scatters to keep
 #define INITIAL_PSIZE (1<<15)
-#define MAX_PSIZE     (1<<30)
+#define MAX_PSIZE     (1<<30) //Max number of indices recorded per gather/scatter
 
 #define MAX_LINE_LENGTH 1024
+
+#if !defined(VBITS)
+# define VBITS (512L)
+# define VBYTES (VBITS/8)
+#endif
 
 namespace gs_patterns
 {
@@ -160,12 +166,18 @@ namespace gs_patterns
         std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
         std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
         std::string getShortName()   { return !_mType ? "G" : "S"; }
+        std::string getShortNameLower()   { return !_mType ? "g" : "s"; }
 
         auto get_srcline() { return srcline[_mType]; }
 
         int      ntop = 0;
+        int64_t  iaddrs_nosym = 0;
+        int64_t  indices_nosym = 0;
+        int64_t  iaddrs_sym = 0;
+        int64_t  indices_sym = 0;
         double   cnt = 0.0;
         int      offset[NTOP]  = {0};
+        int      size[NTOP]  = {0};
 
         addr_t   tot[NTOP]     = {0};
         addr_t   top[NTOP]     = {0};
@@ -201,8 +213,8 @@ namespace gs_patterns
 
     private:
         addr_t (*iaddrs)[NGS] = new addr_t[2][NGS];
-        int64_t (*icnt)[NGS]  = new int64_t[2][NGS];
-        int64_t (*occ)[NGS]   = new int64_t[2][NGS];
+        int64_t (*icnt)[NGS]  = new int64_t[2][NGS]; //vector instances
+        int64_t (*occ)[NGS]   = new int64_t[2][NGS];  //load/store instances
 
         mem_access_type _mType;
     };

@@ -14,20 +14,14 @@
 #include "gs_patterns_core.h"
 #include "utils.h"
 
-//Terminal colors
-#define KNRM  "\x1B[0m"
-#define KRED  "\x1B[31m"
-#define KYEL  "\x1B[33m"
-#define KBLU  "\x1B[34m"
-#define KMAG  "\x1B[35m"
-#define KCYN  "\x1B[36m"
+#if !defined(SYMBOLS_ONLY)
+#define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
+#endif
 
-//address status
-#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
-#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
-
-#define VBITS (512)
-#define VBYTES (VBITS/8) //DONT CHANGE
+#if !defined(VBITS)
+# define VBITS (512L)
+# define VBYTES (VBITS/8)
+#endif
 
 namespace gs_patterns
 {

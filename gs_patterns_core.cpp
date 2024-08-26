@@ -47,9 +47,11 @@ namespace gs_patterns_core
 
         //Create stride histogram and create spatter
         int sidx;
+	int firstgs = 1;
         int unique_strides;
-        int64_t n_stride[1027];
-//      double outbounds;
+	int64_t hbin = 0;
+        int64_t n_stride[OBOUNDS_ALLOC];
+        double outbounds;
 
         if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
 
@@ -60,73 +62,99 @@ namespace gs_patterns_core
             printf("***************************************************************************************\n");
 
             unique_strides = 0;
-            for (j = 0; j < 1027; j++)
+            for (j = 0; j < OBOUNDS_ALLOC; j++)
                 n_stride[j] = 0;
 
             for (j = 1; j < target_metrics.offset[i]; j++) {
-                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + 513;
+                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + OBOUNDS + 1;
                 sidx = (sidx < 1) ? 0 : sidx;
-                sidx = (sidx > 1025) ? 1026 : sidx;
+                sidx = (sidx > OBOUNDS_ALLOC - 1) ? OBOUNDS_ALLOC - 1 : sidx;
                 n_stride[sidx]++;
             }
 
-            for (j = 0; j < 1027; j++) {
+            for (j = 0; j < OBOUNDS_ALLOC; j++) {
                 if (n_stride[j] > 0) {
                     unique_strides++;
                 }
             }
 
-            //outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) target_metrics.offset[i];
+            outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) target_metrics.offset[i];
 
-            //if ( ( (unique_strides > NSTRIDES) || (outbounds > OUTTHRESH) ) && (gather_offset[i] > USTRIDES ) ){
-            if (true) {
+            if (((unique_strides > NSTRIDES) || (outbounds > OUTTHRESH)  && (target_metrics.offset[i] > USTRIDES ) )) {
+		//if (true) {
 
+	        if (firstgs) {
+	  	  firstgs = 0;
+		  printf("***************************************************************************************\n");
+		  printf("%sS\n", target_metrics.type_as_string().c_str());
+	        }
+	        printf("***************************************************************************************\n");
                 //create a binary file
-                FILE *fp_bin;
-                std::string bin_name = file_prefix + ".sbin";
-                printf("%s\n", bin_name.c_str());
-                fp_bin = fopen(bin_name.c_str(), "w");
-                if (NULL == fp_bin) {
-                    throw GSFileError("Could not open " + std::string(bin_name) + "!");
-                }
+                FILE * fp_bin;
+		
+		char bin_name[1024];
+		sprintf(bin_name, "%s.%s.%03d.%02dB.sbin", file_prefix.c_str(), target_metrics.getShortNameLower().c_str(), \
+			i, target_metrics.size[i]);
+		printf("%s\n", bin_name);
+                //std::string bin_name =				\
+		//  file_prefix + "." + target_metrics.getShortNameLower().c_str() + "." + std::to_string(i) + "." + \
+		//  std::to_string(target_metrics.size[i]) + "B.sbin";
+				
+                fp_bin = fopen(bin_name, "w");
+                if (NULL == fp_bin) 
+                    throw GSFileError("Could not open " + std::string(bin_name) + "!");             
 
                 printf("%sIADDR    -- %p\n", target_metrics.getShortName().c_str(), (void*) target_metrics.top[i]);
                 printf("SRCLINE   -- %s\n", target_metrics.get_srcline()[target_metrics.top_idx[i]]);
-                printf("%s %c -- %6.3f%c (512-bit chunks)\n", target_metrics.type_as_string().c_str(),
-                       '%', 100.0 * (double) target_metrics.tot[i] / target_metrics.cnt, '%');
-                printf("NDISTS  -- %ld\n", (long int)target_metrics.offset[i]);
-
+                printf("GATHER %c -- %6.3f%c (%4ld-bit chunks)\n",
+	               '%', 100.0 * (double) target_metrics.tot[i] / target_metrics.cnt, '%', VBITS);
+                printf("DTYPE      -- %d bytes\n", target_metrics.size[i]);
+                printf("NINDICES   -- %d\n", target_metrics.offset[i]);
+                printf("INDICES:\n");
+      
                 int64_t nlcnt = 0;
                 for (j = 0; j < target_metrics.offset[i]; j++) {
-
-                    if (j < 39) {
-                        printf("%10ld ", target_metrics.patterns[i][j]);
-                        fflush(stdout);
-                        if (0 == (++nlcnt % 13))
-                            printf("\n");
-
-                    } else if (j >= (target_metrics.offset[i] - 39)) {
-                        printf("%10ld ", target_metrics.patterns[i][j]);
-                        fflush(stdout);
-                        if (0 == (++nlcnt % 13))
-                            printf("\n");
-
-                    } else if (39 == j)
-                        printf("...\n");
+	
+		  if (j <= 49) {
+		    printf("%10ld ", target_metrics.patterns[i][j]);
+		    fflush(stdout);
+		    if (( ++nlcnt % 10) == 0)
+		      printf("\n");
+	  
+		  } else if (j >= (target_metrics.offset[i] - 50)) {
+		    printf("%10ld ", target_metrics.patterns[i][j]);
+		    fflush(stdout);
+		    if (( ++nlcnt % 10) == 0)
+		      printf("\n");
+		    
+		  } else if (j == 50)
+		    printf("...\n");
                 }
                 printf("\n");
                 printf("DIST HISTOGRAM --\n");
 
-                for (j = 0; j < 1027; j++) {
-                    if (n_stride[j] > 0) {
-                        if (0 == j)
-                            printf("%6s: %ld\n", "< -512", n_stride[j]);
-                        else if (1026 == j)
-                            printf("%6s: %ld\n", ">  512", n_stride[j]);
-                        else
-                            printf("%6d: %ld\n", j - 513, n_stride[j]);
-                    }
-                }
+	        hbin = 0;
+	        for(j=0; j<OBOUNDS_ALLOC; j++) {
+	
+		 if (j == 0) {
+		   printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
+		   hbin = 0;
+	  
+		 } else if (j == OBOUNDS +1) {	    
+		   printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
+		   hbin = 0;
+	  
+		 } else if (j == (OBOUNDS_ALLOC-2) ) {
+		   printf("[    0, %5ld]: %ld\n", VBITS, hbin);
+		   hbin = 0;	      
+	  
+		 } else if (j == (OBOUNDS_ALLOC-1)) {
+		   printf("[%5ld,   inf): %ld\n", VBITS+1, n_stride[j]);
+	  
+		 } else {
+		   hbin += n_stride[j];
+		 }
+	       }
 
                 if (first_spatter) {
                     first_spatter = false;
@@ -143,10 +171,13 @@ namespace gs_patterns_core
                 fprintf(fp, "%ld", target_metrics.patterns[i][target_metrics.offset[i] - 1]);
                 fprintf(fp, "], \"count\":1}");
 
-                fprintf(fp2, "%s,%s,%ld,%6.3f\n",
-                        target_metrics.get_srcline()[target_metrics.top_idx[i]], target_metrics.getShortName().c_str(),
-                        (long int)target_metrics.offset[i],
-                        100.0 * (double) target_metrics.tot[i] / target_metrics.cnt);
+		fprintf(fp2, "0x%lx,%s,%d,%s,%d,%6.3f\n",
+			target_metrics.top[i],
+			target_metrics.get_srcline()[target_metrics.top_idx[i]],
+			target_metrics.size[i],
+			target_metrics.getShortName().c_str(),
+			target_metrics.offset[i],
+                        100.0 * (double) target_metrics.tot[i] / target_metrics.cnt);		
             }
             printf("***************************************************************************************\n\n");
         }
@@ -159,17 +190,15 @@ namespace gs_patterns_core
         for (int i = 0; i < target_metrics.ntop; i++) {
 
             //Find smallest
-            smallest = 0;
-            for (int j = 0; j < target_metrics.offset[i]; j++) {
+	    smallest = 0x7FFFFFFFFFFFFFFFL;
+	    for (int j = 0; j < target_metrics.offset[i]; j++) {
                 if (target_metrics.patterns[i][j] < smallest)
                     smallest = target_metrics.patterns[i][j];
             }
 
-            smallest *= -1;
-
             //Normalize
             for (int j = 0; j < target_metrics.offset[i]; j++) {
-                target_metrics.patterns[i][j] += smallest;
+                target_metrics.patterns[i][j] -= smallest;
             }
         }
     }
@@ -255,9 +284,6 @@ namespace gs_patterns_core
             }
 
             if ((++mcnt % PERSAMPLE) == 0) {
-    #if SAMPLE
-                break;
-    #endif
                 printf(".");
                 fflush(stdout);
             }
@@ -270,6 +296,9 @@ namespace gs_patterns_core
                     //found it
                     if (iaddr == gather_metrics.top[i])
                     {
+		      
+		        gather_metrics.size[i] = ia.get_size();
+			
                         if (gather_base[i] == 0)
                             gather_base[i] = maddr;
 
@@ -278,6 +307,7 @@ namespace gs_patterns_core
                             if (!gather_metrics.grow(i)) {
                                 printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
                                 breakout = true;
+				break;
                             }
                         }
                         gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
@@ -293,6 +323,8 @@ namespace gs_patterns_core
                     //found it
                     if (iaddr == scatter_metrics.top[i])
                     {
+		        scatter_metrics.size[i] = ia.get_size();
+			
                         //set base
                         if (scatter_base[i] == 0)
                             scatter_base[i] = maddr;
@@ -302,6 +334,7 @@ namespace gs_patterns_core
                             if (!scatter_metrics.grow(i)) {
                                 printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
                                 breakout = true;
+				break;
                             }
                         }
                         scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
