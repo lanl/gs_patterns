@@ -12,7 +12,7 @@ https://github.com/NVlabs/NVBit/releases/tag/1.7
 ```
 # For example for Linux x86_64)
 
-wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-aarch64-1.7.tar.bz2
+wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-x86_64-1.7-1.tar.bz2
 ```
 
 
@@ -25,7 +25,7 @@ export NVBIT_DIR=</location/of/nvbit_release/>  # full path
 
 cp -rv gs_patterns/nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
-cd $NVBIT_DIR
+cd $NVBIT_DIR/tools
 
 #Compile tools and test apps. Make sure the gsnv_trace tool compiled. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
 make -j
