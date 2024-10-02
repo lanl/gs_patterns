@@ -27,7 +27,7 @@ cp -rv gs_patterns/nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
 cd $NVBIT_DIR
 
-#Compile tools and test apps. Make sure the gsnv_trace tool compiled. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
+#Compile tools and test apps. Make sure the gsnv_trace tool compiles. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
 make -j
 ```
 
@@ -46,14 +46,17 @@ The config file should have 1 configuration setting per line.  Configuration set
 
 The following are a list of configuration items currently supported:
 
-| Config               | Description                                                                                                                                                                                                                | possible values                |
-|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
-| GSNV_LOG_LEVEL       | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                      | 0 to 255                       |
-| GSNV_TARGET_KERNEL   | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be instrumented. If no exact match found, Will match all kernels which starts with the string provided. | A String                       |
-| GSNV_FILE_PREFIX     | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If none is provided one will be inferred from the input trace file if provided.      | A String                       |
-| GSNV_TRACE_OUT_FILE  | Specifies the name of the output file which will be written with trace data. Trace file will not be written if this is not provided.                                                                                       | A String                       |
-| GSNV_MAX_TRACE_COUNT | Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                               | An Integer e.g 1000000         |
-| GSNV_ONE_WARP_MODE   | Enable handling traces for a single warp (defaults to warp 0 if enabled). Analogous to trace of first thread in CPU mode.                                                                                                  | 1 (on) or 0 (off) the default) |
+| Configs                         | Description                                                                                                                                                                                                                | possible values                    |
+|---------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| GSNV_LOG_LEVEL                  | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                      | 0 to 255                           |
+| GSNV_TARGET_KERNEL              | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be instrumented. If no exact match found, Will match all kernels which starts with the string provided. | A String                           |
+| GSNV_FILE_PREFIX                | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If none is provided one will be inferred from the input trace file if provided.      | A String                           |
+| GSNV_TRACE_OUT_FILE             | Specifies the name of the output file which will be written with trace data. Trace file will not be written if this is not provided.                                                                                       | A String                           |
+| GSNV_MAX_TRACE_COUNT            | Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                               | An Integer e.g 1000000             |
+| GSNV_ONE_WARP_MODE              | Enable handling traces for a single warp (defaults to warp 0 if enabled). Analogous to trace of first thread in CPU mode.                                                                                                  | 1 (on) or 0 (off) the default)     |
+| GSNV_THRESHOLD_NUM_ACCESSES     | Sets the threshold for number of accesses                                                                                                                                                                                  | An Integer                         |
+| GSNV_THRESHOLD_NUM_STRIDES      | Sets the threshold for number of unique distances                                                                                                                                                                          | An Integer                         |
+| GSNV_THRESHOLD_OUT_DIST_PERCENT | Sets the threshold for percentage of distances at boundaries of histogram                                                                                                                                                  | A percentage as a Decimal e.g 0.5  |
 
 
 

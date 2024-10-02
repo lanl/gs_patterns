@@ -423,8 +423,8 @@ void MemPatternsForNV::process_second_pass()
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
 
     // State carried thru
-    addr_t iaddr;
-    int64_t maddr;
+    addr_t iaddr = 0;
+    int64_t maddr = 0;
     addr_t gather_base[NTOP] = {0};
     addr_t scatter_base[NTOP] = {0};
 
@@ -804,6 +804,18 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
                 int8_t val = atoi(value.c_str());
                 bool mode = val ? true : false;
                 set_one_warp_mode(mode);
+            }
+            else if (GSNV_THRESHOLD_NUM_ACCESSES == name) {
+                int val = atoi(value.c_str());
+                _thresholds.num_accesses = val;
+            }
+            else if (GSNV_THRESHOLD_NUM_STRIDES == name) {
+                int val = atoi(value.c_str());
+                _thresholds.num_strides = val;
+            }
+            else if (GSNV_THRESHOLD_OUT_DIST_PERCENT == name) {
+                float val = atof(value.c_str());
+                _thresholds.out_dist_percent = val;
             }
             else {
                 std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "
