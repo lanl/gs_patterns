@@ -22,14 +22,15 @@ void usage (const std::string & prog_name)
 {
     std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> <options>       \n"
               << "       " << prog_name << " <nvbit_trace.gz> <options>   \n"
-              << "              [ -n, -nvbit ]                             - Trace file provided is NVBit trace\n"
-              << "              [ -w, -num_strides <number strides> ]      - Use memory acceses from one warp only (warp 0)\n"
-              << "              [ -v, -verbose ]                           - Verbose output\n"
-              << "Additional options: \n"
-              << "              [ -a, -num_accesses <number of accesses> ] - Threshold for number of accesses\n"
-              << "              [ -s, -num_strides <number strides> ]      - Threshold for number of unique distances\n"
-              << "              [ -o, -out_dist_percent <out threshold> ]     - Threshold for percentage of distances at boundaries of histogram\n"
-              << "              [ -help, -h ]                              - Dispaly program options\n"
+              << "[Options for NVBit traces]:\n"
+              << "       [ -n, --nvbit ]                                   - Trace file provided is NVBit trace\n"
+              << "       [ -w, --one_wwarp ]                               - Use memory accesses from one warp only (warp 0)\n"
+              << "       [ -v, --verbose ]                                 - Enable verbose logging\n"
+              << "[General options avaialable for all traces]:\n"
+              << "       [ -a, --num_accesses <number of accesses> ]       - Threshold for number of accesses\n"
+              << "       [ -s, --num_strides <number of strides> ]         - Threshold for number of unique distances\n"
+              << "       [ -o, --out_dist_perc <out distance threshold> ]  - Threshold for percentage of distances at boundaries of histogram\n"
+              << "       [ -h, --help ]                                    - Display program options\n"
               << std::endl;
 }
 

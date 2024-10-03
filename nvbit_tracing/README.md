@@ -95,13 +95,13 @@ The gzip command will compress the resulting trace file for use by gs_patterns i
 In the previous section on Instrumenting an application, we used gsnv_trace.so to instrument an application, the resulting trace file was then compressed.
 The instrumentation run also generated pattern files. 
 If we want to rerun the pattern generation we can do so using the generated (and compressed) trace file without re-instrumenting the application as this is much faster.
-To do this we just need to run the gs_pattern binary with the trace file and the "-nv " option.  The "-nv" option indicates that the trace file is a NVBit trace.  
+To do this we just need to run the gs_pattern binary with the trace file and the "-n " option.  The "-n" option indicates that the trace file is an NVBit trace.  
 
 Example:
 
 ```
 export GS_PATTERNS_DIR=/path/to/gs_patterns/binary/
-$GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -nv
+$GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -n
 ```
 
 ### Important Notes 
