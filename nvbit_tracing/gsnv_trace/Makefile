@@ -20,10 +20,12 @@ MAXRREGCOUNT_FLAG=
 endif
 
 NVBIT_PATH=../../core
-GSPATTERNS_CORE_PATH=../../../gs_patterns
-INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_PATH)
+GSPATTERNS_CORE_INC_PATH=../../../gs_patterns/
+GSPATTERNS_CORE_LIB_PATH=../../../gs_patterns/build
 
-LIBS=-L$(NVBIT_PATH) -lnvbit -L$(GSPATTERNS_CORE_PATH)/build -lgs_patterns_core
+INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_INC_PATH)
+
+LIBS=-L$(NVBIT_PATH) -lnvbit -L$(GSPATTERNS_CORE_LIB_PATH) -lgs_patterns_core
 NVCC_PATH=-L $(subst bin/nvcc,lib64,$(shell which nvcc | tr -s /))
 
 SOURCES=$(wildcard *.cu)

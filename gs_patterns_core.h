@@ -331,9 +331,11 @@ namespace gs_patterns_core
                         i, target_metrics.size[i]);
 
                 printf("%s\n", bin_name);
-                //std::string bin_name =				\
-                //file_prefix + "." + target_metrics.getShortNameLower().c_str() + "." + std::to_string(i) + "." + \
-                //std::to_string(target_metrics.size[i]) + "B.sbin";
+                /*
+                std::string bin_name =
+                file_prefix + "." + target_metrics.getShortNameLower().c_str() + "." + std::to_string(i) + "." +
+                std::to_string(target_metrics.size[i]) + "B.sbin";
+                 */
 
                 fp_bin = fopen(bin_name, "w");
                 if (NULL == fp_bin)

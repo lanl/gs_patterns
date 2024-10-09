@@ -1,31 +1,39 @@
 # Setup
-Download NVBit from the following locations:
 
-https://github.com/NVlabs/NVBit
+Building the NVBit client requires first building gs_patterns. 
+
+## Step 1 - Download NVBit 
+
+NVBit can be downloaded from the following location:  https://github.com/NVlabs/NVBit
 
 #### Tested with version 1.7
 
 https://github.com/NVlabs/NVBit/releases/tag/1.7
 
-#### From the parent directory of the gs_patterns distribution
+#### From the parent directory of the gs_patterns distribution umpack and build the gsnv_trace shared library.
 
 ```
 # For example for Linux x86_64)
 
-wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-aarch64-1.7.tar.bz2
+wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-x86_64-1.7-1.tar.bz2
 ```
 
+## Step 2 - Build gsnv_trace.so
 
 ```
-module load gcc #or make sure you have gcc. Tested with 8.5.0 and 11.4.0
+# Make sure you have gcc installed. Tested with gcc 8.5.0 and 11.4.0
 
-tar xvf <nvbit-$platform-1.7.tar.bz2>
+tar xvf nvbit-Linux-x86_64-1.7-1.tar.bz2
 
 export NVBIT_DIR=</location/of/nvbit_release/>  # full path
 
 cp -rv gs_patterns/nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
-cd $NVBIT_DIR
+cd $NVBIT_DIR/tools
+
+# Edit gs_patterns/nvbit_tracing/gsnv_trace/Makefile and ensure: 
+a) GSPATTERNS_CORE_INC_PATH is set to the location of the gs_patterns directory, and 
+b) GSPATTERNS_CORE_LIB_PATH is set to the location where the gs_patterns_core.so shared library is located.
 
 #Compile tools and test apps. Make sure the gsnv_trace tool compiles. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
 make -j
@@ -34,7 +42,7 @@ make -j
 
 *** <b>NOTE</b> *** make sure you gzip the nvbit trace output file before attempting to use with gs_patterns.
 
-# gsnv_trace
+## Running gsnv_trace
 
 The gsnv_trace tool will instrument one or more CUDA kernels within a CUDA application and pass the resulting memory traces to the gs_patterns gs_patterns_core library.  
 Once the application has completed and all kernels are retired the gs_patterns_core library will begin processing the trace data and automatically generate the pattern outputs and pattern output files.  
