@@ -1,6 +1,10 @@
 # Setup
 
-Building the NVBit client requires first building gs_patterns. 
+Building the NVBit client requires first building gs_patterns it also requires a recent version of the NVIDIA CUDA libraries.
+gsnv_trace has been built and tested with CUDA 12.3.  Please ensure your PATH and LD_LIBRARY_PATH are set accordingly so that nvcc is found.
+
+export PATH=/path/to/cuda-12.3/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/path/to/cuda-12.3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
 ## Step 1 - Download NVBit 
 
