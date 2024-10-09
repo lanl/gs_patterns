@@ -21,7 +21,7 @@ endif
 
 NVBIT_PATH=../../core
 GSPATTERNS_CORE_INC_PATH=../../../gs_patterns/
-GSPATTERNS_CORE_LIB_PATH=../../../gs_patterns/build
+GSPATTERNS_CORE_LIB_PATH=../../../gs_patterns/build/
 
 INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_INC_PATH)
 
