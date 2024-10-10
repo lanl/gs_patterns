@@ -114,6 +114,8 @@ namespace gspin_patterns
         void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
         const std::string & get_binary_file_name()         { return _binary_file_name; }
 
+        Thresholds & get_thresholds() override             { return _thresholds;       }
+
         void update_metrics();
 
         std::string get_file_prefix ();
@@ -128,6 +130,8 @@ namespace gspin_patterns
         std::pair<InstrInfo, InstrInfo> _iinfo;
         TraceInfo                       _trace_info;
         InstrWindow<MEMORY_ACCESS_SIZE> _iw;
+
+        Thresholds                      _thresholds;
 
         int8_t                          _log_level         = 0;
 

@@ -1,40 +1,52 @@
 # Setup
-Download NVBit from the following locations:
 
-https://github.com/NVlabs/NVBit
+Building the NVBit client requires first building gs_patterns it also requires a recent version of the NVIDIA CUDA libraries.
+gsnv_trace has been built and tested with CUDA 12.3.  Please ensure your PATH and LD_LIBRARY_PATH are set accordingly so that nvcc is found.
+
+export PATH=/path/to/cuda-12.3/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/path/to/cuda-12.3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+## Step 1 - Download NVBit 
+
+NVBit can be downloaded from the following location:  https://github.com/NVlabs/NVBit
 
 #### Tested with version 1.7
 
 https://github.com/NVlabs/NVBit/releases/tag/1.7
 
-#### From the parent directory of the gs_patterns distribution
+#### From the parent directory of the gs_patterns distribution umpack and build the gsnv_trace shared library.
 
 ```
 # For example for Linux x86_64)
 
-wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-aarch64-1.7.tar.bz2
+wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-x86_64-1.7-1.tar.bz2
 ```
 
+## Step 2 - Build gsnv_trace.so
 
 ```
-module load gcc #or make sure you have gcc. Tested with 8.5.0 and 11.4.0
+# Make sure you have gcc installed. Tested with gcc 8.5.0 and 11.4.0
 
-tar xvf <nvbit-$platform-1.7.tar.bz2>
+tar xvf nvbit-Linux-x86_64-1.7-1.tar.bz2
 
 export NVBIT_DIR=</location/of/nvbit_release/>  # full path
 
 cp -rv gs_patterns/nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
-cd $NVBIT_DIR
+cd $NVBIT_DIR/tools
 
-#Compile tools and test apps. Make sure the gsnv_trace tool compiled. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
+# Edit gs_patterns/nvbit_tracing/gsnv_trace/Makefile and ensure: 
+a) GSPATTERNS_CORE_INC_PATH is set to the location of the gs_patterns directory, and 
+b) GSPATTERNS_CORE_LIB_PATH is set to the location where the gs_patterns_core.so shared library is located.
+
+#Compile tools and test apps. Make sure the gsnv_trace tool compiles. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
 make -j
 ```
 
 
 *** <b>NOTE</b> *** make sure you gzip the nvbit trace output file before attempting to use with gs_patterns.
 
-# gsnv_trace
+## Running gsnv_trace
 
 The gsnv_trace tool will instrument one or more CUDA kernels within a CUDA application and pass the resulting memory traces to the gs_patterns gs_patterns_core library.  
 Once the application has completed and all kernels are retired the gs_patterns_core library will begin processing the trace data and automatically generate the pattern outputs and pattern output files.  
@@ -46,14 +58,17 @@ The config file should have 1 configuration setting per line.  Configuration set
 
 The following are a list of configuration items currently supported:
 
-| Config               | Description                                                                                                                                                                                                                | possible values                |
-|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
-| GSNV_LOG_LEVEL       | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                      | 0 to 255                       |
-| GSNV_TARGET_KERNEL   | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be instrumented. If no exact match found, Will match all kernels which starts with the string provided. | A String                       |
-| GSNV_FILE_PREFIX     | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If none is provided one will be inferred from the input trace file if provided.      | A String                       |
-| GSNV_TRACE_OUT_FILE  | Specifies the name of the output file which will be written with trace data. Trace file will not be written if this is not provided.                                                                                       | A String                       |
-| GSNV_MAX_TRACE_COUNT | Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                               | An Integer e.g 1000000         |
-| GSNV_ONE_WARP_MODE   | Enable handling traces for a single warp (defaults to warp 0 if enabled). Analogous to trace of first thread in CPU mode.                                                                                                  | 1 (on) or 0 (off) the default) |
+| Configs                         | Description                                                                                                                                                                                                                | possible values                    |
+|---------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| GSNV_LOG_LEVEL                  | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                      | 0 to 255                           |
+| GSNV_TARGET_KERNEL              | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be instrumented. If no exact match found, Will match all kernels which starts with the string provided. | A String                           |
+| GSNV_FILE_PREFIX                | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If none is provided one will be inferred from the input trace file if provided.      | A String                           |
+| GSNV_TRACE_OUT_FILE             | Specifies the name of the output file which will be written with trace data. Trace file will not be written if this is not provided.                                                                                       | A String                           |
+| GSNV_MAX_TRACE_COUNT            | Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                               | An Integer e.g 1000000             |
+| GSNV_ONE_WARP_MODE              | Enable handling traces for a single warp (defaults to warp 0 if enabled). Analogous to trace of first thread in CPU mode.                                                                                                  | 1 (on) or 0 (off) the default)     |
+| GSNV_THRESHOLD_NUM_ACCESSES     | Sets the threshold for number of accesses                                                                                                                                                                                  | An Integer                         |
+| GSNV_THRESHOLD_NUM_STRIDES      | Sets the threshold for number of unique distances                                                                                                                                                                          | An Integer                         |
+| GSNV_THRESHOLD_OUT_DIST_PERCENT | Sets the threshold for percentage of distances at boundaries of histogram                                                                                                                                                  | A percentage as a Decimal e.g 0.5  |
 
 
 
@@ -92,13 +107,13 @@ The gzip command will compress the resulting trace file for use by gs_patterns i
 In the previous section on Instrumenting an application, we used gsnv_trace.so to instrument an application, the resulting trace file was then compressed.
 The instrumentation run also generated pattern files. 
 If we want to rerun the pattern generation we can do so using the generated (and compressed) trace file without re-instrumenting the application as this is much faster.
-To do this we just need to run the gs_pattern binary with the trace file and the "-nv " option.  The "-nv" option indicates that the trace file is a NVBit trace.  
+To do this we just need to run the gs_pattern binary with the trace file and the "-n " option.  The "-n" option indicates that the trace file is an NVBit trace.  
 
 Example:
 
 ```
 export GS_PATTERNS_DIR=/path/to/gs_patterns/binary/
-$GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -nv
+$GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -n
 ```
 
 ### Important Notes 
