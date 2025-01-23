@@ -259,24 +259,18 @@ namespace gs_patterns
 
         void init() {
             for (int w = 0; w < 2; w++) {
-                for (int i = 0; i < IWINDOW; i++) {
-                    _w_iaddrs[w][i] = -1;
-                    _w_bytes[w][i] = 0;
-                    _w_cnt[w][i] = 0;
-                    for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                        _w_maddr[w][i][j] = -1;
-                }
+                memset(_w_iaddrs[w], 0xFF, IWINDOW * sizeof(int64_t));
+    		    memset(_w_bytes[w], 0x00, IWINDOW * sizeof(int64_t));
+                memset(_w_cnt[w], 0x00, IWINDOW * sizeof(int64_t));
+                memset(&_w_maddr[w][0][0], 0xFF, IWINDOW * MAX_ACCESS_SIZE * sizeof(int64_t));
             }
         }
 
         void reset(int w) {
-            for (int i = 0; i < IWINDOW; i++) {
-                _w_iaddrs[w][i] = -1;
-                _w_bytes[w][i] = 0;
-                _w_cnt[w][i] = 0;
-                for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                    _w_maddr[w][i][j] = -1;
-            }
+            memset(_w_iaddrs[w], 0xFF, IWINDOW * sizeof(int64_t));
+		    memset(_w_bytes[w], 0x00, IWINDOW * sizeof(int64_t));
+            memset(_w_cnt[w], 0x00, IWINDOW * sizeof(int64_t));
+            memset(&_w_maddr[w][0][0], 0xFF, IWINDOW * MAX_ACCESS_SIZE * sizeof(int64_t));
         }
 
         void reset() {
