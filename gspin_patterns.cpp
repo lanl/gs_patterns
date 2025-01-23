@@ -145,13 +145,13 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
         translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
         if (startswith(target_metrics.get_srcline()[k], "?")) {
             target_iinfo.get_icnt()[k] = 0;
-	    target_metrics.iaddrs_nosym++;
-	    target_metrics.indices_nosym += target_iinfo.get_occ()[k];
-      
-	} else {
-	  target_metrics.iaddrs_sym++;
-	  target_metrics.indices_sym += target_iinfo.get_occ()[k];
-	}
+            target_metrics.iaddrs_nosym++;
+            target_metrics.indices_nosym += target_iinfo.get_occ()[k];
+
+        } else {
+            target_metrics.iaddrs_sym++;
+            target_metrics.indices_sym += target_iinfo.get_occ()[k];
+        }
 #endif
 
         target_cnt += target_iinfo.get_icnt()[k];
@@ -184,7 +184,6 @@ void MemPatternsForPin::process_traces()
     trace_entry_t *p_drtrace = NULL;
     trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
 
-    
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
         //decode drtrace
         drline = p_drtrace;

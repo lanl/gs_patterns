@@ -23,19 +23,15 @@
 #define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
 //patterns
-#define USTRIDES 1024   //Threshold for number of accesses
-#define NSTRIDES 15     //Threshold for number of unique distances
-#define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
+#define DEFAULT_THRESHOLD_USTRIDES 1024          //Default Threshold for number of accesses
+#define DEFAULT_THRESHOLD_NSTRIDES 15            //Default Threshold for number of unique distances
+#define DEFAULT_THRESHOLD_OUT_DIST_PERCENT (0.5) //Default Threshold for percentage of distances at boundaries of histogram
+
 #define NTOP (10)       //Final gather / scatters to keep
 #define INITIAL_PSIZE (1<<15)
 #define MAX_PSIZE     (1<<30) //Max number of indices recorded per gather/scatter
 
 #define MAX_LINE_LENGTH 1024
-
-#if !defined(VBITS)
-# define VBITS (512L)
-# define VBYTES (VBITS/8)
-#endif
 
 namespace gs_patterns
 {
@@ -163,21 +159,21 @@ namespace gs_patterns
         Metrics(const Metrics &) = delete;
         Metrics & operator=(const Metrics & right) = delete;
 
-        std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
-        std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
-        std::string getShortName()   { return !_mType ? "G" : "S"; }
-        std::string getShortNameLower()   { return !_mType ? "g" : "s"; }
+        std::string type_as_string()    { return !_mType ? "GATHER" : "SCATTER"; }
+        std::string getName()           { return !_mType ? "Gather" : "Scatter"; }
+        std::string getShortName()      { return !_mType ? "G" : "S"; }
+        std::string getShortNameLower() { return !_mType ? "g" : "s"; }
 
         auto get_srcline() { return srcline[_mType]; }
 
         int      ntop = 0;
-        int64_t  iaddrs_nosym = 0;
+        int64_t  iaddrs_nosym  = 0;
         int64_t  indices_nosym = 0;
-        int64_t  iaddrs_sym = 0;
-        int64_t  indices_sym = 0;
+        int64_t  iaddrs_sym    = 0;
+        int64_t  indices_sym   = 0;
         double   cnt = 0.0;
         int      offset[NTOP]  = {0};
-        int      size[NTOP]  = {0};
+        int      size[NTOP]    = {0};
 
         addr_t   tot[NTOP]     = {0};
         addr_t   top[NTOP]     = {0};
@@ -314,6 +310,14 @@ namespace gs_patterns
         int64_t  maddr;
     };
 
+    struct Thresholds
+    {
+        // Defaults set here, but potentially overrided
+        int   num_accesses     = DEFAULT_THRESHOLD_USTRIDES;
+        int   num_strides      = DEFAULT_THRESHOLD_NSTRIDES;
+        float out_dist_percent = DEFAULT_THRESHOLD_OUT_DIST_PERCENT;
+    };
+
     template <std::size_t MAX_ACCESS_SIZE>
     class MemPatterns
     {
@@ -339,6 +343,8 @@ namespace gs_patterns
                               get_instr_window()        = 0;
         virtual void          set_log_level(int8_t ll)  = 0;
         virtual int8_t        get_log_level()           = 0;
+
+        virtual Thresholds &  get_thresholds()          = 0;
     };
 
 } // namespace gs_patterns

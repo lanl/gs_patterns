@@ -116,6 +116,10 @@ namespace gsnv_patterns
         static constexpr const char * GSNV_LOG_LEVEL       = "GSNV_LOG_LEVEL";
         static constexpr const char * GSNV_ONE_WARP_MODE   = "GSNV_ONE_WARP_MODE";
 
+        static constexpr const char * GSNV_THRESHOLD_NUM_ACCESSES     = "GSNV_THRESHOLD_NUM_ACCESSES";
+        static constexpr const char * GSNV_THRESHOLD_NUM_STRIDES      = "GSNV_THRESHOLD_NUM_STRIDES";
+        static constexpr const char * GSNV_THRESHOLD_OUT_DIST_PERCENT = "GSNV_THRESHOLD_OUT_DIST_PERCENT";
+
 
         MemPatternsForNV(): _metrics(GATHER, SCATTER),
                             _iinfo(GATHER, SCATTER),
@@ -141,6 +145,8 @@ namespace gsnv_patterns
 
         void          set_log_level(int8_t level) override      { _log_level = level;      }
         int8_t        get_log_level() override                  { return _log_level;       }
+
+        Thresholds & get_thresholds() override                  { return _thresholds;      }
 
         void set_trace_file(const std::string & trace_file_name);
         inline const std::string & get_trace_file_name()        { return _trace_file_name; }
@@ -223,6 +229,8 @@ namespace gsnv_patterns
         std::string                        _file_prefix;                // Used by gs_patterns_core to write out pattern files
         std::string                        _trace_out_file_name;        // Ouput file containing nvbit traces encounterd if requested
         std::string                        _tmp_trace_out_file_name;    // Temp file used to store traces before re-writing to _trace_out_filename
+
+        Thresholds                         _thresholds;
 
         std::string                        _config_file_name;
         std::set<std::string>              _target_kernels;
