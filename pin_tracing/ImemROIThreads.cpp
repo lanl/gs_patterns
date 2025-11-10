@@ -501,24 +501,24 @@ VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
 
       //READ
       if ((rw == 0) || (rw == 2) ) {
-	Mcnt[j]++;
-	//Mbytes[j] += bsize;  
+	Mcnt[i]++;
+	//Mbytes[i] += bsize;
 	tent.type = (unsigned short) 0;
   
-	memcpy(ptrace[j], &tent, sizeof(trace_entry_t));
-	ptrace[j] += 1;
-	drtrace_write(fptrace[j], &btrace[j][0], &ptrace[j], 0, j);	
+	memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
+	ptrace[i] += 1;
+	drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
       }
 
       //WRITE
       if ((rw == 1) || (rw == 2) ) {
-	Mcnt[j]++;
-	//Mbytes[j] += bsize;  
+	Mcnt[i]++;
+	//Mbytes[i] += bsize;
 	tent.type = (unsigned short) 1;
   
-	memcpy(ptrace[j], &tent, sizeof(trace_entry_t));
-	ptrace[j] += 1;
-	drtrace_write(fptrace[j], &btrace[j][0], &ptrace[j], 0, j);
+	memcpy(ptrace[i], &tent, sizeof(trace_entry_t));
+	ptrace[i] += 1;
+	drtrace_write(fptrace[i], &btrace[i][0], &ptrace[i], 0, i);
       }
       
     }
