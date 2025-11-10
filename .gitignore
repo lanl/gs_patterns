@@ -34,3 +34,6 @@
 #Build and pin directories
 /build
 /pin_dir
+
+#IDE files
+/.idea

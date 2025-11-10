@@ -35,9 +35,6 @@ INT64 maxbytes (1LL<<37); //128GiB
 #define NBUFS (1024)
 INT32 numThreads = 0;
 
-#define PADSIZE 56 // 64 byte line size: 64-8
-#define NBUFS (1024)
-
 //FROM DR SOURCE
 //DR trace
 typedef uintptr_t addr_t;
